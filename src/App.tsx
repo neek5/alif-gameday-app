@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -222,20 +225,112 @@ function Input({
 
 // ─── Athletes List ─────────────────────────────────────────────────────────────
 
+function SortableAthleteItem({ athlete, onSelect }: { athlete: Athlete; onSelect: (id: string) => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: athlete.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1 : 0,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const total = computeTotal(athlete);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform"
+    >
+      <div className="px-3 py-4 flex items-center justify-between">
+        {/* Drag Handle */}
+        <div 
+          {...attributes} 
+          {...listeners} 
+          className="p-3 mr-1 text-[#cccccc] cursor-grab active:cursor-grabbing touch-none flex items-center justify-center"
+        >
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor">
+            <circle cx="4" cy="4" r="1.5" />
+            <circle cx="8" cy="4" r="1.5" />
+            <circle cx="4" cy="10" r="1.5" />
+            <circle cx="8" cy="10" r="1.5" />
+            <circle cx="4" cy="16" r="1.5" />
+            <circle cx="8" cy="16" r="1.5" />
+          </svg>
+        </div>
+        
+        {/* Content */}
+        <div className="flex-1 min-w-0" onClick={() => onSelect(athlete.id)}>
+          <p
+            className="text-[#111111] leading-none truncate"
+            style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 800 }}
+          >
+            {athlete.name || "Unnamed"}
+          </p>
+          <div className="flex flex-col gap-1.5 mt-2">
+            <div className="flex items-center gap-2">
+              {athlete.weightClass && (
+                <span className="text-[#febf33] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
+                  {athlete.weightClass}kg {athlete.ageCategory}
+                </span>
+              )}
+            </div>
+            {total.total > 0 && (
+              <span className="text-[#111111] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
+                S: {total.s || "-"}, B: {total.b || "-"}, D: {total.d || "-"}, Total: {total.total}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pl-3" onClick={() => onSelect(athlete.id)}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-[#aaaaaa] shrink-0">
+            <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AthletesList({
   athletes,
   onSelect,
   onAdd,
+  onReorder,
 }: {
   athletes: Athlete[];
   onSelect: (id: string) => void;
   onAdd: () => void;
+  onReorder: (newAthletes: Athlete[]) => void;
 }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: any) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = athletes.findIndex((a) => a.id === active.id);
+      const newIndex = athletes.findIndex((a) => a.id === over.id);
+      onReorder(arrayMove(athletes, oldIndex, newIndex));
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-[#ffffff]">
       <div className="px-5 pt-14 pb-6">
         <p
-          className="text-[#FEBF33] text-xs tracking-[0.2em] uppercase mb-1"
+          className="text-[#febf33] text-xs tracking-[0.2em] uppercase mb-1"
           style={{ fontFamily: "var(--font-mono)" }}
         >
           Competition Day
@@ -257,44 +352,15 @@ function AthletesList({
             No athletes yet. Tap + to add one.
           </p>
         )}
-        {athletes.map((a) => {
-          const total = computeTotal(a);
-          return (
-            <div
-              key={a.id}
-              className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
-              onClick={() => onSelect(a.id)}
-            >
-              <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-[#111111] leading-none truncate"
-                    style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 800 }}
-                  >
-                    {a.name || "Unnamed"}
-                  </p>
-                  <div className="flex flex-col gap-1.5 mt-2">
-                    <div className="flex items-center gap-2">
-                      {a.weightClass && (
-                        <span className="text-[#FEBF33] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
-                          {a.weightClass}kg {a.ageCategory}
-                        </span>
-                      )}
-                    </div>
-                    {total.total > 0 && (
-                      <span className="text-[#111111] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
-                        S: {total.s || "-"}, B: {total.b || "-"}, D: {total.d || "-"}, Total: {total.total}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-[#aaaaaa] shrink-0">
-                  <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            </div>
-          );
-        })}
+        
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={athletes.map(a => a.id)} strategy={verticalListSortingStrategy}>
+            {athletes.map((a) => (
+              <SortableAthleteItem key={a.id} athlete={a} onSelect={onSelect} />
+            ))}
+          </SortableContext>
+        </DndContext>
+        
         <div className="h-24" />
       </div>
 
@@ -434,17 +500,43 @@ function AthleteDetail({
         {/* PRs */}
         <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.08)]">
           <p className="text-[#666666] text-[10px] tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Personal Records</p>
-          <div className="flex gap-2">
-            {(["squat", "bench", "deadlift"] as Lift[]).map((lift) => (
-              <div key={lift} className="flex-1 text-center">
-                <p className="text-[#777777] text-[9px] tracking-widest uppercase mb-1" style={{ fontFamily: "var(--font-mono)" }}>
-                  {lift[0].toUpperCase()}
-                </p>
-                <p className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700 }}>
-                  {athlete[lift].atpr || "—"}
-                </p>
-              </div>
-            ))}
+          <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr] gap-x-2 gap-y-3 text-center items-center">
+            {/* Header row */}
+            <div></div>
+            <div className="text-[#111111] text-[13px] tracking-widest uppercase font-bold" style={{ fontFamily: "var(--font-mono)" }}>S</div>
+            <div className="text-[#111111] text-[13px] tracking-widest uppercase font-bold" style={{ fontFamily: "var(--font-mono)" }}>B</div>
+            <div className="text-[#111111] text-[13px] tracking-widest uppercase font-bold" style={{ fontFamily: "var(--font-mono)" }}>D</div>
+            <div className="text-[#111111] text-[13px] tracking-widest uppercase font-bold" style={{ fontFamily: "var(--font-mono)" }}>T</div>
+
+            {/* ALL-TIME row */}
+            <div className="text-[#111111] text-[11px] tracking-widest uppercase text-left font-bold" style={{ fontFamily: "var(--font-mono)" }}>ALL-TIME</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.squat.atpr || "—"}</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.bench.atpr || "—"}</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.deadlift.atpr || "—"}</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>
+              {(() => {
+                const s = parseFloat(athlete.squat.atpr || "0") || 0;
+                const b = parseFloat(athlete.bench.atpr || "0") || 0;
+                const d = parseFloat(athlete.deadlift.atpr || "0") || 0;
+                const total = s + b + d;
+                return total > 0 ? total : "—";
+              })()}
+            </div>
+
+            {/* COMP row */}
+            <div className="text-[#111111] text-[11px] tracking-widest uppercase text-left font-bold" style={{ fontFamily: "var(--font-mono)" }}>COMP</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.squat.compPr || "—"}</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.bench.compPr || "—"}</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.deadlift.compPr || "—"}</div>
+            <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>
+              {(() => {
+                const s = parseFloat(athlete.squat.compPr || "0") || 0;
+                const b = parseFloat(athlete.bench.compPr || "0") || 0;
+                const d = parseFloat(athlete.deadlift.compPr || "0") || 0;
+                const total = s + b + d;
+                return total > 0 ? total : "—";
+              })()}
+            </div>
           </div>
         </div>
 
@@ -462,7 +554,7 @@ function AthleteDetail({
                     <span className="text-[#777777] text-[10px] tracking-widest uppercase w-4" style={{ fontFamily: "var(--font-mono)" }}>
                       {lift[0].toUpperCase()}
                     </span>
-                    <span className="text-[#FEBF33] text-sm" style={{ fontFamily: "var(--font-mono)" }}>{records}</span>
+                    <span className="text-[#febf33] text-sm" style={{ fontFamily: "var(--font-mono)" }}>{records}</span>
                   </div>
                 );
               })}
@@ -482,11 +574,6 @@ function AthleteDetail({
                 {LIFT_LABELS[lift]}
               </span>
               <div className="flex items-center gap-3">
-                {athlete[lift].peakingNumber && (
-                  <span className="text-[#666666]" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                    {athlete[lift].peakingNumber} kg
-                  </span>
-                )}
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
                   <path d="M7 4l6 6-6 6" stroke="#aaaaaa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -641,7 +728,7 @@ function WarmupPage({
         <div className="grid grid-cols-3 gap-y-3 gap-x-2 mb-4 bg-[#f9f9f9] rounded-2xl p-4 border border-[rgba(0,0,0,0.06)]">
           <TopStat label="PEAK" value={ld.peakingNumber} />
           <TopStat label="ATPR" value={ld.atpr} />
-          <TopStat label="COMP" value={ld.compPr} />
+          <TopStat label="COMP PR" value={ld.compPr} />
           {ld.nr && <TopStat label="NR" value={ld.nr} />}
           {ld.ar && <TopStat label="AR" value={ld.ar} />}
           {ld.wr && <TopStat label="WR" value={ld.wr} />}
@@ -1141,6 +1228,7 @@ export default function App() {
           persist([...athletes, fresh]);
           setPage({ type: "setup", athleteId: fresh.id });
         }}
+        onReorder={persist}
       />
     );
   }

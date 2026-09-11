@@ -6,11 +6,13 @@ A local-first, mobile-optimized web application designed to help powerlifting co
 
 ### 1. Athlete Management
 - Add and manage multiple athletes concurrently.
+- **Drag-and-drop reordering:** Organize athletes seamlessly to match the competition flight order.
 - Track critical setup details: Name, Weight Class, Squat Rack Height, and Bench Rack Height.
 - Tabulate and display the athlete's current Total automatically.
 
 ### 2. SBD Tracking (Squat, Bench, Deadlift)
-- Track **Peaking Numbers** and **Personal Records (PRs)**.
+- Track **Peaking Numbers**.
+- Detailed **Personal Records Grid**: Track both **ALL-TIME PRs** and **COMP PRs** across Squat, Bench, and Deadlift with auto-calculated Totals.
 - Display any relevant **Records** (National Record / Asian Record / World Record).
 - Manage the **3 Attempts** (Opener, 2nd attempt, 3rd attempt) for each lift.
 
@@ -25,13 +27,15 @@ A local-first, mobile-optimized web application designed to help powerlifting co
 
 - **Framework:** React 19 + Vite 8
 - **Styling:** Tailwind CSS v4 (Clean light theme with `#FEBF33` accent)
+- **Drag and Drop:** `@dnd-kit` for mobile-optimized touch reordering
 - **State Management:** React Hooks + `localStorage` (Local-first architecture, no database required)
 - **Deployment:** Vercel (or any static hosting provider)
 
 ## 🎨 Design & Aesthetics
 - Mobile-first layout optimized for use on an iPhone during a busy meet.
 - Clean light mode for high contrast and readability under bright gym lighting.
-- Tap-friendly touch targets for on-the-fly editing.
+- **Montserrat** typography for clean, modern readability.
+- Tap-friendly touch targets and intuitive drag handles.
 
 ## 🚀 Getting Started Locally
 
