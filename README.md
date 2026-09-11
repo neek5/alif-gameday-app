@@ -23,6 +23,12 @@ A local-first, mobile-optimized web application designed to help powerlifting co
 - **On-the-fly Editing:** Easily edit weight and reps for each warmup set while on the warmup page.
 - **Completion Tracking:** Mark warmup sets as completed as the athlete progresses.
 
+### 4. Live Gameday Standings
+- **Deadlift Scenario Calculator:** Dedicated scratchpad to run Deadlift attempt scenarios during the final flight.
+- **Auto-Standings:** Dynamically sorts and ranks opponents by Highest Total, using Lowest Bodyweight as the tiebreaker.
+- **Intelligent Target Calculation:** Automatically calculates the exact DL3 required for the main athlete to achieve 1st, 2nd, and 3rd place against their top 3 opponents.
+- **Record-at-Play Toggle:** Instantly switches target calculation increments between 2.5kg (standard loading) and 0.5kg (micro-loading for records).
+
 ## 🛠 Tech Stack
 
 - **Framework:** React 19 + Vite 8

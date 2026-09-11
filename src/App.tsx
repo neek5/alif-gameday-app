@@ -30,6 +30,17 @@ type LiftData = {
   openTotal: string;
 };
 
+type GamedayOpponent = {
+  id: string;
+  name: string;
+  bw: string;
+  bestSq: string;
+  bestBp: string;
+  dl1: string;
+  dl2: string;
+  dl3: string;
+};
+
 type Athlete = {
   id: string;
   name: string;
@@ -44,6 +55,12 @@ type Athlete = {
   squat: LiftData;
   bench: LiftData;
   deadlift: LiftData;
+  gameday: {
+    dl1?: string;
+    dl2?: string;
+    dl3?: string;
+    opponents: GamedayOpponent[];
+  };
 };
 
 type Lift = "squat" | "bench" | "deadlift";
@@ -51,7 +68,8 @@ type Page =
   | { type: "list" }
   | { type: "detail"; athleteId: string }
   | { type: "warmup"; athleteId: string; lift: Lift }
-  | { type: "setup"; athleteId: string | null };
+  | { type: "setup"; athleteId: string | null }
+  | { type: "gameday"; athleteId: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,13 +78,19 @@ const STORAGE_KEY = "plift_athletes";
 function loadAthletes(): Athlete[] {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as any[];
-    return raw.map((a) => ({
-      ...emptyAthlete(),
-      ...a,
-      squat: migrateLift(a.squat),
-      bench: migrateLift(a.bench),
-      deadlift: migrateLift(a.deadlift),
-    }));
+    return raw.map((a) => {
+      const gameday = a.gameday || {
+        opponents: [emptyGamedayOpponent(), emptyGamedayOpponent(), emptyGamedayOpponent()],
+      };
+      return {
+        ...emptyAthlete(),
+        ...a,
+        gameday,
+        squat: migrateLift(a.squat),
+        bench: migrateLift(a.bench),
+        deadlift: migrateLift(a.deadlift),
+      };
+    });
   } catch {
     return [];
   }
@@ -125,6 +149,19 @@ function emptyLift(): LiftData {
   };
 }
 
+function emptyGamedayOpponent(): GamedayOpponent {
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    bw: "",
+    bestSq: "",
+    bestBp: "",
+    dl1: "",
+    dl2: "",
+    dl3: "",
+  };
+}
+
 function emptyAthlete(): Athlete {
   return {
     id: crypto.randomUUID(),
@@ -140,6 +177,13 @@ function emptyAthlete(): Athlete {
     squat: emptyLift(),
     bench: emptyLift(),
     deadlift: emptyLift(),
+    gameday: {
+      opponents: [
+        emptyGamedayOpponent(),
+        emptyGamedayOpponent(),
+        emptyGamedayOpponent(),
+      ],
+    },
   };
 }
 
@@ -385,11 +429,13 @@ function AthleteDetail({
   onBack,
   onSetup,
   onLift,
+  onGameday,
 }: {
   athlete: Athlete;
   onBack: () => void;
   onSetup: () => void;
   onLift: (lift: Lift) => void;
+  onGameday: () => void;
 }) {
   const total = computeTotal(athlete);
   const s = parseWeight(athlete.squat.peakingNumber);
@@ -472,10 +518,17 @@ function AthleteDetail({
                   <span className="text-[#aaaaaa]">+</span>
                   <span>{total.b > 0 ? total.b : "—"}</span>
                 </div>
-                <span className="text-[#FEBF33] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 900 }}>
+                <span className="text-[#febf33] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 900 }}>
                   {(total.s > 0 || total.b > 0) ? total.s + total.b : "—"}
                 </span>
               </div>
+            </div>
+
+            <div className="mt-2">
+              <button onClick={onGameday} className="w-full bg-[#111111] text-[#febf33] py-3.5 rounded-xl font-bold tracking-[0.2em] uppercase text-xs active:scale-[0.98] transition-transform flex items-center justify-center gap-2" style={{ fontFamily: "var(--font-mono)" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Open Gameday
+              </button>
             </div>
           </div>
         </div>
@@ -1197,6 +1250,270 @@ function LiftSetupForm({
   );
 }
 
+// ─── Gameday Page ─────────────────────────────────────────────────────────────
+
+function getValidDL(dl1: string, dl2: string, dl3: string): number {
+  if (dl3 && !dl3.toLowerCase().includes('x')) return parseFloat(dl3) || 0;
+  if (dl2 && !dl2.toLowerCase().includes('x')) return parseFloat(dl2) || 0;
+  if (dl1 && !dl1.toLowerCase().includes('x')) return parseFloat(dl1) || 0;
+  return 0;
+}
+
+function GamedayPage({
+  athlete,
+  onBack,
+  onUpdate,
+}: {
+  athlete: Athlete;
+  onBack: () => void;
+  onUpdate: (updated: Athlete) => void;
+}) {
+  const [recordAtPlay, setRecordAtPlay] = useState(false);
+  const gameday = athlete.gameday || { opponents: [] };
+
+  const mainRow = {
+    isMain: true,
+    id: athlete.id,
+    name: athlete.name || "Athlete",
+    bw: athlete.bodyWeight || "0",
+    bestSq: athlete.squat.best || "0",
+    bestBp: athlete.bench.best || "0",
+    dl1: gameday.dl1 || "",
+    dl2: gameday.dl2 || "",
+    dl3: gameday.dl3 || "",
+  };
+
+  const rows = [mainRow, ...gameday.opponents.map(o => ({ ...o, isMain: false }))];
+
+  const calculatedRows = rows.map(r => {
+    const sq = parseFloat(r.bestSq) || 0;
+    const bp = parseFloat(r.bestBp) || 0;
+    const dl = getValidDL(r.dl1, r.dl2, r.dl3);
+    const total = sq + bp + dl;
+    return { ...r, total, bwVal: parseFloat(r.bw) || 0 };
+  });
+
+  calculatedRows.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    return a.bwVal - b.bwVal;
+  });
+
+  // Calculate targets for Win / 2nd / 3rd
+  const oppRows = calculatedRows.filter(r => !r.isMain);
+  const best1 = oppRows[0];
+  const best2 = oppRows[1];
+  const best3 = oppRows[2];
+
+  const mainBwVal = parseFloat(athlete.bodyWeight) || 0;
+  const mainSubtotal = (parseFloat(athlete.squat.best) || 0) + (parseFloat(athlete.bench.best) || 0);
+
+  function calcReqDL(opp: any) {
+    if (!opp || opp.total === 0) return "—";
+    const oppTotal = opp.total;
+    const oppBw = opp.bwVal;
+    
+    // If we are heavier, we MUST beat their total. If lighter, tying is enough.
+    let targetTotal = mainBwVal >= oppBw ? oppTotal + 0.1 : oppTotal;
+    const rawNeeded = targetTotal - mainSubtotal;
+    
+    if (rawNeeded <= 0) return "0"; // Already winning just on subtotal
+    
+    const increment = recordAtPlay ? 0.5 : 2.5;
+    const w = Math.ceil(rawNeeded / increment) * increment;
+    return w;
+  }
+
+  const reqWin = calcReqDL(best1);
+  const req2nd = calcReqDL(best2);
+  const req3rd = calcReqDL(best3);
+
+  const updateMainDL = (field: "dl1"|"dl2"|"dl3", value: string) => {
+    onUpdate({
+      ...athlete,
+      gameday: { ...gameday, [field]: value }
+    });
+  };
+
+  const updateOpponent = (id: string, field: keyof GamedayOpponent, value: string) => {
+    const newOpponents = gameday.opponents.map(o => 
+      o.id === id ? { ...o, [field]: value } : o
+    );
+    onUpdate({ ...athlete, gameday: { ...gameday, opponents: newOpponents } });
+  };
+
+  const deleteOpponent = (id: string) => {
+    const newOpponents = gameday.opponents.filter(o => o.id !== id);
+    onUpdate({ ...athlete, gameday: { ...gameday, opponents: newOpponents } });
+  };
+
+  const addOpponent = () => {
+    onUpdate({ ...athlete, gameday: { ...gameday, opponents: [...gameday.opponents, emptyGamedayOpponent()] } });
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#ffffff]">
+      <div className="px-5 pt-14 pb-4 flex items-center justify-between">
+        <button onClick={onBack} className="flex items-center gap-1 text-[#111111] active:opacity-60">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: "bold" }}>Back</span>
+        </button>
+      </div>
+
+      <div className="px-5 pb-6">
+        <h1 className="text-[#111111] leading-none tracking-tight" style={{ fontFamily: "var(--font-display)", fontSize: 44, fontWeight: 900 }}>
+          GAMEDAY
+        </h1>
+        <p className="text-[#888888] mt-2 mb-6" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+          Track attempts and live standings
+        </p>
+
+        {/* TOP BOX */}
+        <div className="mb-6 bg-[#F9F9F9] rounded-2xl border border-[rgba(0,0,0,0.06)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,0,0,0.06)]">
+            <span className="text-[#666] tracking-widest uppercase font-bold text-xs" style={{ fontFamily: "var(--font-mono)" }}>
+              Record at Play
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={recordAtPlay} onChange={e => setRecordAtPlay(e.target.checked)} />
+              <div className="w-11 h-6 bg-[#e5e5e5] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FEBF33]"></div>
+            </label>
+          </div>
+          <div className="flex divide-x divide-[rgba(0,0,0,0.06)]">
+            <div className="flex-1 flex flex-col items-center py-4">
+              <span className="text-[#888] tracking-widest uppercase font-bold text-[10px] mb-1" style={{ fontFamily: "var(--font-mono)" }}>Win</span>
+              <span className="text-[#111] font-bold text-lg" style={{ fontFamily: "var(--font-mono)" }}>{reqWin}</span>
+            </div>
+            <div className="flex-1 flex flex-col items-center py-4">
+              <span className="text-[#888] tracking-widest uppercase font-bold text-[10px] mb-1" style={{ fontFamily: "var(--font-mono)" }}>2nd</span>
+              <span className="text-[#111] font-bold text-lg" style={{ fontFamily: "var(--font-mono)" }}>{req2nd}</span>
+            </div>
+            <div className="flex-1 flex flex-col items-center py-4">
+              <span className="text-[#888] tracking-widest uppercase font-bold text-[10px] mb-1" style={{ fontFamily: "var(--font-mono)" }}>3rd</span>
+              <span className="text-[#111] font-bold text-lg" style={{ fontFamily: "var(--font-mono)" }}>{req3rd}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* LEGEND */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FEBF33]"></div>
+              <span className="text-[#666] tracking-widest uppercase font-bold text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>My Athlete</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#F5E6C4]"></div>
+              <span className="text-[#666] tracking-widest uppercase font-bold text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>Opponents</span>
+            </div>
+          </div>
+          <span className="text-[#666] tracking-widest uppercase font-bold text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>tap cell to edit</span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-x-auto overflow-y-auto px-5 pb-24">
+        <div className="min-w-[700px]">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-8">#</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left min-w-[120px]">Athlete</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">BW</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>SQ</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>BP</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">DL 1</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">DL 2</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">DL 3</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-16">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calculatedRows.map((r, idx) => {
+                const borderCls = r.isMain ? "border-l-4 border-l-[#FEBF33]" : "border-l-4 border-l-[#F5E6C4]";
+                const inputCls = "w-full bg-transparent outline-none text-center font-semibold text-[#111] placeholder:text-[#ccc] text-sm";
+                const textCls = "w-full bg-transparent outline-none font-semibold text-[#111] placeholder:text-[#ccc] text-sm";
+                
+                return (
+                  <tr key={r.id} className={`${borderCls} border-b border-b-[rgba(0,0,0,0.04)]`}>
+                    <td className="p-2 text-center font-bold text-sm text-[#888] relative group">
+                      {!r.isMain && (
+                        <button onClick={() => deleteOpponent(r.id)} className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#eee] rounded flex items-center justify-center text-[#888] hover:bg-red-500 hover:text-white transition-colors">
+                          <span className="text-xs font-bold leading-none -mt-0.5">×</span>
+                        </button>
+                      )}
+                      {idx + 1}
+                    </td>
+                    <td className="p-2">
+                      {r.isMain ? (
+                        <div className="font-semibold text-sm truncate">{r.name}</div>
+                      ) : (
+                        <input value={r.name} onChange={e => updateOpponent(r.id, "name", e.target.value)} className={textCls} placeholder="Name" />
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {r.isMain ? (
+                        <div className="text-center font-semibold text-sm">{r.bw}</div>
+                      ) : (
+                        <input value={r.bw} onChange={e => updateOpponent(r.id, "bw", e.target.value)} className={inputCls} placeholder="—" />
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {r.isMain ? (
+                        <div className="text-center font-semibold text-sm">{r.bestSq}</div>
+                      ) : (
+                        <input value={r.bestSq} onChange={e => updateOpponent(r.id, "bestSq", e.target.value)} className={inputCls} placeholder="—" />
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {r.isMain ? (
+                        <div className="text-center font-semibold text-sm">{r.bestBp}</div>
+                      ) : (
+                        <input value={r.bestBp} onChange={e => updateOpponent(r.id, "bestBp", e.target.value)} className={inputCls} placeholder="—" />
+                      )}
+                    </td>
+                    <td className="p-2">
+                      <input 
+                        value={r.dl1} 
+                        onChange={e => r.isMain ? updateMainDL("dl1", e.target.value) : updateOpponent(r.id, "dl1", e.target.value)} 
+                        className={inputCls} 
+                        placeholder="—"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input 
+                        value={r.dl2} 
+                        onChange={e => r.isMain ? updateMainDL("dl2", e.target.value) : updateOpponent(r.id, "dl2", e.target.value)} 
+                        className={inputCls} 
+                        placeholder="—"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input 
+                        value={r.dl3} 
+                        onChange={e => r.isMain ? updateMainDL("dl3", e.target.value) : updateOpponent(r.id, "dl3", e.target.value)} 
+                        className={inputCls} 
+                        placeholder="—"
+                      />
+                    </td>
+                    <td className="p-2 text-center font-bold text-sm text-[#111]">
+                      {r.total > 0 ? r.total : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <button onClick={addOpponent} className="mt-4 flex items-center gap-2 text-[#888] hover:text-[#111] transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            <span className="text-sm font-semibold">Add athlete to standings</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── App Root ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -1242,6 +1559,19 @@ export default function App() {
         onBack={() => setPage({ type: "list" })}
         onSetup={() => setPage({ type: "setup", athleteId: a.id })}
         onLift={(lift) => setPage({ type: "warmup", athleteId: a.id, lift })}
+        onGameday={() => setPage({ type: "gameday", athleteId: a.id })}
+      />
+    );
+  }
+
+  if (page.type === "gameday") {
+    const a = athletes.find((x) => x.id === page.athleteId);
+    if (!a) return null;
+    return (
+      <GamedayPage
+        athlete={a}
+        onBack={() => setPage({ type: "detail", athleteId: a.id })}
+        onUpdate={(updated) => persist(athletes.map((x) => (x.id === updated.id ? updated : x)))}
       />
     );
   }
