@@ -1417,14 +1417,14 @@ function GamedayPage({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-[15ch]">Athlete</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[4ch]">BW</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[6ch]">Best<br/>SQ</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[6ch]">Best<br/>BP</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[6ch]">DL 1</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[6ch]">DL 2</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[6ch]">DL 3</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-[6ch]">Total</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] min-w-[110px] w-[110px] max-w-[110px]">Athlete</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[44px] w-[44px] max-w-[44px]">BW</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[52px] w-[52px] max-w-[52px]">Best<br/>SQ</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[52px] w-[52px] max-w-[52px]">Best<br/>BP</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[52px] w-[52px] max-w-[52px]">DL 1</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[52px] w-[52px] max-w-[52px]">DL 2</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[52px] w-[52px] max-w-[52px]">DL 3</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[52px] w-[52px] max-w-[52px]">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -1432,8 +1432,8 @@ function GamedayPage({
                 const rowBg = r.isMain ? "bg-[#FEBF33]" : "bg-white";
                 const stickyBg = r.isMain ? "bg-[#FEBF33]" : "bg-white";
                 const borderCls = r.isMain ? "" : "border-l-4 border-l-[#F5E6C4]";
-                const inputCls = `w-full bg-transparent outline-none text-center font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-[13px]`;
-                const textCls = `w-full bg-transparent outline-none font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-[13px]`;
+                const inputCls = `w-full min-w-0 bg-transparent outline-none text-center font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-[13px]`;
+                const textCls = `w-full min-w-0 bg-transparent outline-none font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-[13px]`;
                 
                 return (
                   <tr key={r.id} className={`${rowBg} ${borderCls} border-b border-b-[rgba(0,0,0,0.04)]`}>
