@@ -314,8 +314,8 @@ function SortableAthleteItem({ athlete, onSelect }: { athlete: Athlete; onSelect
         {/* Content */}
         <div className="flex-1 min-w-0" onClick={() => onSelect(athlete.id)}>
           <p
-            className="text-[#111111] leading-none truncate"
-            style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 800 }}
+            className="text-[#111111] truncate"
+            style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}
           >
             {athlete.name || "Unnamed"}
           </p>
@@ -1136,10 +1136,10 @@ function SetupPage({
         {activeTab === "info" && (
           <div className="flex flex-col gap-4">
             <Input label="Name" value={a.name} onChange={(v) => setField("name", v)} placeholder="Athlete name" />
+            <Input label="Weight Class (kg)" value={a.weightClass} onChange={(v) => setField("weightClass", v)} placeholder="e.g. 83" />
             <Input label="Age Category" value={a.ageCategory} onChange={(v) => setField("ageCategory", v)} placeholder="e.g. Junior" />
             <Input label="Lot Number" value={a.lotNumber} onChange={(v) => setField("lotNumber", v)} placeholder="e.g. 9" />
             <Input label="Body Weight (kg)" value={a.bodyWeight} onChange={(v) => setField("bodyWeight", v)} placeholder="e.g. 82.9" />
-            <Input label="Weight Class (kg)" value={a.weightClass} onChange={(v) => setField("weightClass", v)} placeholder="e.g. 83" />
             <Input label="Squat Rack Height" value={a.squatRackHeight} onChange={(v) => setField("squatRackHeight", v)} placeholder="e.g. 5" />
             <Input label="Bench Rack Height" value={a.benchRackHeight} onChange={(v) => setField("benchRackHeight", v)} placeholder="e.g. 3" />
             <Input label="Bench Safety Height" value={a.benchSafetyHeight} onChange={(v) => setField("benchSafetyHeight", v)} placeholder="e.g. 2" />
@@ -1264,7 +1264,7 @@ function getValidDL(dl1: string, dl2: string, dl3: string): number {
 // Tweak these numbers to make columns tighter/wider — the table now
 // obeys them exactly (table-layout: fixed), instead of the browser's
 // default <input> width taking over.
-const GAMEDAY_COLS = [92, 38, 42, 42, 58, 58, 58, 46];
+const GAMEDAY_COLS = [92, 44, 42, 42, 58, 58, 58, 46];
 const GAMEDAY_TABLE_WIDTH = GAMEDAY_COLS.reduce((a, b) => a + b, 0);
 
 function GamedayPage({
