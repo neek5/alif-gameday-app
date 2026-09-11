@@ -405,10 +405,13 @@ function AthletesList({
           </SortableContext>
         </DndContext>
         
-        <div className="h-24" />
+        <div style={{ height: "calc(6rem + env(safe-area-inset-bottom))" }} />
       </div>
 
-      <div className="absolute bottom-8 right-5">
+      <div
+        className="fixed right-5 z-20"
+        style={{ bottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+      >
         <button
           onClick={onAdd}
           className="w-14 h-14 rounded-full bg-[#FEBF33] flex items-center justify-center shadow-lg active:scale-95 transition-transform"
