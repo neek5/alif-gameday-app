@@ -1414,17 +1414,17 @@ function GamedayPage({
 
       <div className="flex-1 overflow-x-auto overflow-y-auto px-5 pb-24">
         <div className="w-max min-w-full pb-4">
-          <table className="w-full text-left border-collapse">
+          <table className="w-max text-left border-collapse">
             <thead>
               <tr>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] min-w-[25px] w-[25px] max-w-[25px]">Athlete</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[5px] w-[5px] max-w-[5px]">BW</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[15px] w-[15px] max-w-[15px]">Best<br/>SQ</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[15px] w-[15px] max-w-[15px]">Best<br/>BP</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[15px] w-[15px] max-w-[15px]">DL 1</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[15px] w-[15px] max-w-[15px]">DL 2</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[15px] w-[15px] max-w-[15px]">DL 3</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center min-w-[15px] w-[15px] max-w-[15px]">Total</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-auto">Athlete</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">BW</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">Best<br/>SQ</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">Best<br/>BP</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">DL 1</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">DL 2</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">DL 3</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-auto">Total</th>
               </tr>
             </thead>
             <tbody>
