@@ -1417,14 +1417,14 @@ function GamedayPage({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-20">Athlete</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">BW</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">Best<br/>SQ</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">Best<br/>BP</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">DL 1</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">DL 2</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">DL 3</th>
-                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">Total</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-10">Athlete</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-2">BW</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-4">Best<br/>SQ</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-4">Best<br/>BP</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-4">DL 1</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-4">DL 2</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-4">DL 3</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-4">Total</th>
               </tr>
             </thead>
             <tbody>
