@@ -6,24 +6,38 @@ type WarmupSet = { weight: string; reps: string; done: boolean };
 
 type LiftData = {
   peakingNumber: string;
-  pr: string;
+  atpr: string;
+  compPr: string;
+  best: string;
+  notes: string;
   nr: string;
   ar: string;
   wr: string;
   warmups: WarmupSet[];
-  gaps: number[]; // minutes between warmup[i] and warmup[i+1], length = warmups.length - 1
-  startTime: string; // "HH:MM" 24h — anchor for first warmup
+  gaps: number[]; // minutes between warmup[i] and warmup[i+1]
+  gapToAttempt1: number; // minutes between last warmup and attempt 1
+  drillsDuration: number;
+  drillsGap: number; // gap between drills and first warmup
+  drillsDone: boolean;
+  attempt1Time: string; // "HH:MM" 24h — anchor for 1st attempt
   attempt1: string;
   attempt2: string;
   attempt3: string;
+  openCurrent: string;
+  openTotal: string;
 };
 
 type Athlete = {
   id: string;
   name: string;
+  ageCategory: string;
+  lotNumber: string;
+  bodyWeight: string;
   weightClass: string;
   squatRackHeight: string;
   benchRackHeight: string;
+  benchSafetyHeight: string;
+  liftOff: string;
   squat: LiftData;
   bench: LiftData;
   deadlift: LiftData;
@@ -42,9 +56,9 @@ const STORAGE_KEY = "plift_athletes";
 
 function loadAthletes(): Athlete[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as Athlete[];
-    // migrate: ensure gaps field exists
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as any[];
     return raw.map((a) => ({
+      ...emptyAthlete(),
       ...a,
       squat: migrateLift(a.squat),
       bench: migrateLift(a.bench),
@@ -55,7 +69,7 @@ function loadAthletes(): Athlete[] {
   }
 }
 
-function migrateLift(ld: LiftData): LiftData {
+function migrateLift(ld: any): LiftData {
   if (!ld) return emptyLift();
   const warmups = ld.warmups ?? [];
   const gaps =
@@ -64,7 +78,14 @@ function migrateLift(ld: LiftData): LiftData {
       : Array.from({ length: Math.max(0, warmups.length - 1) }, (_, i) =>
           i === 0 ? 2 : i === 1 ? 5 : 3
         );
-  return { ...ld, warmups, gaps };
+  return { 
+    ...emptyLift(),
+    ...ld,
+    warmups, 
+    gaps,
+    atpr: ld.atpr ?? ld.pr ?? "",
+    attempt1Time: ld.attempt1Time ?? ld.startTime ?? "",
+  };
 }
 
 function saveAthletes(athletes: Athlete[]) {
@@ -74,7 +95,10 @@ function saveAthletes(athletes: Athlete[]) {
 function emptyLift(): LiftData {
   return {
     peakingNumber: "",
-    pr: "",
+    atpr: "",
+    compPr: "",
+    best: "",
+    notes: "",
     nr: "",
     ar: "",
     wr: "",
@@ -85,10 +109,16 @@ function emptyLift(): LiftData {
       { weight: "", reps: "", done: false },
     ],
     gaps: [2, 5, 3],
-    startTime: "",
+    gapToAttempt1: 5,
+    drillsDuration: 15,
+    drillsGap: 5,
+    drillsDone: false,
+    attempt1Time: "",
     attempt1: "",
     attempt2: "",
     attempt3: "",
+    openCurrent: "",
+    openTotal: "",
   };
 }
 
@@ -96,21 +126,26 @@ function emptyAthlete(): Athlete {
   return {
     id: crypto.randomUUID(),
     name: "",
+    ageCategory: "",
+    lotNumber: "",
+    bodyWeight: "",
     weightClass: "",
     squatRackHeight: "",
     benchRackHeight: "",
+    benchSafetyHeight: "",
+    liftOff: "",
     squat: emptyLift(),
     bench: emptyLift(),
     deadlift: emptyLift(),
   };
 }
 
-// Compute scheduled display time for warmup at index given start time "HH:MM" and gaps array
-function warmupTime(startTime: string, gapsBefore: number[]): string {
-  if (!startTime) return "--:--";
-  const [hStr, mStr] = startTime.split(":");
+function timeSubtract(timeStr: string, minutes: number): string {
+  if (!timeStr) return "--:--";
+  const [hStr, mStr] = timeStr.split(":");
   let total = parseInt(hStr) * 60 + parseInt(mStr);
-  for (const g of gapsBefore) total += g;
+  total -= minutes;
+  while (total < 0) total += 24 * 60;
   const h = Math.floor(total / 60) % 24;
   const m = total % 60;
   const ampm = h >= 12 ? "pm" : "am";
@@ -137,12 +172,11 @@ function parseWeight(s: string): number {
   return isNaN(n) ? 0 : n;
 }
 
-function computeTotal(a: Athlete): string {
-  const s = parseWeight(a.squat.peakingNumber);
-  const b = parseWeight(a.bench.peakingNumber);
-  const d = parseWeight(a.deadlift.peakingNumber);
-  if (s === 0 && b === 0 && d === 0) return "—";
-  return (s + b + d).toString();
+function computeTotal(a: Athlete) {
+  const s = parseWeight(a.squat.best);
+  const b = parseWeight(a.bench.best);
+  const d = parseWeight(a.deadlift.best);
+  return { s, b, d, total: s + b + d };
 }
 
 const LIFT_LABELS: Record<Lift, string> = {
@@ -179,7 +213,7 @@ function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="bg-[#1a1a1a] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2.5 text-[#f0ede8] text-sm outline-none focus:border-[#c9b0db] transition-colors"
+        className="bg-[#f0f0f0] border border-[rgba(0,0,0,0.15)] rounded-lg px-3 py-2.5 text-[#111111] text-sm outline-none focus:border-[#FEBF33] transition-colors"
         style={{ fontFamily: "var(--font-body)" }}
       />
     </div>
@@ -198,16 +232,16 @@ function AthletesList({
   onAdd: () => void;
 }) {
   return (
-    <div className="flex flex-col h-full bg-[#080808]">
+    <div className="flex flex-col h-full bg-[#ffffff]">
       <div className="px-5 pt-14 pb-6">
         <p
-          className="text-[#c9b0db] text-xs tracking-[0.2em] uppercase mb-1"
+          className="text-[#FEBF33] text-xs tracking-[0.2em] uppercase mb-1"
           style={{ fontFamily: "var(--font-mono)" }}
         >
           Competition Day
         </p>
         <h1
-          className="text-[#f0ede8] leading-none"
+          className="text-[#111111] leading-none"
           style={{ fontFamily: "var(--font-display)", fontSize: 52, fontWeight: 900 }}
         >
           ATHLETES
@@ -217,7 +251,7 @@ function AthletesList({
       <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-3">
         {athletes.length === 0 && (
           <p
-            className="text-[#444] text-sm text-center mt-16"
+            className="text-[#777777] text-sm text-center mt-16"
             style={{ fontFamily: "var(--font-body)" }}
           >
             No athletes yet. Tap + to add one.
@@ -228,31 +262,33 @@ function AthletesList({
           return (
             <div
               key={a.id}
-              className="bg-[#111] border border-[rgba(255,255,255,0.07)] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
+              className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
               onClick={() => onSelect(a.id)}
             >
               <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p
-                    className="text-[#f0ede8] leading-none truncate"
+                    className="text-[#111111] leading-none truncate"
                     style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 800 }}
                   >
                     {a.name || "Unnamed"}
                   </p>
-                  <div className="flex items-center gap-3 mt-1">
-                    {a.weightClass && (
-                      <span className="text-[#c9b0db] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
-                        {a.weightClass}kg
-                      </span>
-                    )}
-                    {total !== "—" && (
-                      <span className="text-[#555] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
-                        Total: {total}
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    <div className="flex items-center gap-2">
+                      {a.weightClass && (
+                        <span className="text-[#FEBF33] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
+                          {a.weightClass}kg {a.ageCategory}
+                        </span>
+                      )}
+                    </div>
+                    {total.total > 0 && (
+                      <span className="text-[#111111] text-xs" style={{ fontFamily: "var(--font-mono)" }}>
+                        S: {total.s || "-"}, B: {total.b || "-"}, D: {total.d || "-"}, Total: {total.total}
                       </span>
                     )}
                   </div>
                 </div>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-[#333] shrink-0">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-[#aaaaaa] shrink-0">
                   <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
@@ -265,10 +301,10 @@ function AthletesList({
       <div className="absolute bottom-8 right-5">
         <button
           onClick={onAdd}
-          className="w-14 h-14 rounded-full bg-[#c9b0db] flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          className="w-14 h-14 rounded-full bg-[#FEBF33] flex items-center justify-center shadow-lg active:scale-95 transition-transform"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="#080808" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M12 5v14M5 12h14" stroke="#111111" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
         </button>
       </div>
@@ -295,17 +331,17 @@ function AthleteDetail({
   const d = parseWeight(athlete.deadlift.peakingNumber);
 
   return (
-    <div className="flex flex-col h-full bg-[#080808]">
+    <div className="flex flex-col h-full bg-[#ffffff]">
       <div className="px-5 pt-14 pb-2 flex items-start justify-between">
-        <button onClick={onBack} className="flex items-center gap-1 text-[#c9b0db] active:opacity-60 mt-1">
+        <button onClick={onBack} className="flex items-center gap-1 text-[#FEBF33] active:opacity-60 mt-1">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path d="M13 4l-6 6 6 6" stroke="#c9b0db" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M13 4l-6 6 6 6" stroke="#FEBF33" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Back</span>
         </button>
         <button
           onClick={onSetup}
-          className="text-[#555] active:text-[#c9b0db] transition-colors"
+          className="text-[#666666] active:text-[#FEBF33] transition-colors"
           style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.1em" }}
         >
           EDIT
@@ -313,40 +349,81 @@ function AthleteDetail({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="px-5 pt-3 pb-6 border-b border-[rgba(255,255,255,0.06)]">
+        <div className="px-5 pt-3 pb-6 border-b border-[rgba(0,0,0,0.08)]">
           <h1
-            className="text-[#f0ede8] leading-none"
+            className="text-[#111111] leading-none"
             style={{ fontFamily: "var(--font-display)", fontSize: 48, fontWeight: 900 }}
           >
             {athlete.name || "Unnamed"}
           </h1>
-          {athlete.weightClass && (
-            <p className="text-[#c9b0db] mt-1" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-              {athlete.weightClass} KG CLASS
-            </p>
-          )}
+          <p className="text-[#FEBF33] mt-2 flex flex-wrap gap-x-2 gap-y-1" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+            {athlete.weightClass && <span>{athlete.weightClass}kg</span>}
+            {athlete.ageCategory && <span>{athlete.ageCategory}</span>}
+            {athlete.lotNumber && <span>- Lot {athlete.lotNumber}</span>}
+            {athlete.bodyWeight && <span>- BW {athlete.bodyWeight}kg</span>}
+          </p>
         </div>
 
         {/* Info */}
-        <div className="px-5 py-5 border-b border-[rgba(255,255,255,0.06)]">
-          <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>Info</p>
+        <div className="px-5 py-5 border-b border-[rgba(0,0,0,0.08)]">
+          <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>Info</p>
           <div className="grid grid-cols-2 gap-3">
-            <InfoRow label="Weight Class" value={athlete.weightClass ? `${athlete.weightClass} kg` : "—"} />
             <InfoRow label="Squat Rack Ht." value={athlete.squatRackHeight || "—"} />
             <InfoRow label="Bench Rack Ht." value={athlete.benchRackHeight || "—"} />
+            <InfoRow label="Bench Safety Ht." value={athlete.benchSafetyHeight || "—"} />
+            <InfoRow label="Lift Off" value={athlete.liftOff || "—"} />
+          </div>
+        </div>
+
+        {/* LIVE TOTAL & SUBTOTAL */}
+        <div className="px-5 py-6 border-b border-[rgba(0,0,0,0.08)] bg-[#f9f9f9]">
+          <div className="flex flex-col gap-6">
+            <div>
+              <p className="text-[#666666] text-[13px] font-bold tracking-[0.18em] uppercase mb-2" style={{ fontFamily: "var(--font-mono)" }}>
+                Live Total
+              </p>
+              <div className="flex items-end justify-between">
+                <div className="flex items-center gap-2 text-[#666]" style={{ fontFamily: "var(--font-mono)", fontSize: 16 }}>
+                  <span>{total.s > 0 ? total.s : "—"}</span>
+                  <span className="text-[#aaaaaa]">-</span>
+                  <span>{total.b > 0 ? total.b : "—"}</span>
+                  <span className="text-[#aaaaaa]">-</span>
+                  <span>{total.d > 0 ? total.d : "—"}</span>
+                </div>
+                <span className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 48, fontWeight: 900 }}>
+                  {total.total > 0 ? total.total : "—"}
+                </span>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-[#666666] text-[13px] font-bold tracking-[0.18em] uppercase mb-2" style={{ fontFamily: "var(--font-mono)" }}>
+                Live Subtotal
+              </p>
+              <div className="flex items-end justify-between">
+                <div className="flex items-center gap-2 text-[#666]" style={{ fontFamily: "var(--font-mono)", fontSize: 16 }}>
+                  <span>{total.s > 0 ? total.s : "—"}</span>
+                  <span className="text-[#aaaaaa]">+</span>
+                  <span>{total.b > 0 ? total.b : "—"}</span>
+                </div>
+                <span className="text-[#FEBF33] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 900 }}>
+                  {(total.s > 0 || total.b > 0) ? total.s + total.b : "—"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Peaking Numbers */}
-        <div className="px-5 py-5 border-b border-[rgba(255,255,255,0.06)]">
-          <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>Peaking Numbers</p>
+        <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.08)] opacity-60">
+          <p className="text-[#666666] text-[10px] tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Peaking Numbers</p>
           <div className="flex gap-2">
             {(["squat", "bench", "deadlift"] as Lift[]).map((lift) => (
               <div key={lift} className="flex-1 text-center">
-                <p className="text-[#444] text-[10px] tracking-widest uppercase mb-1" style={{ fontFamily: "var(--font-mono)" }}>
+                <p className="text-[#777777] text-[9px] tracking-widest uppercase mb-1" style={{ fontFamily: "var(--font-mono)" }}>
                   {lift[0].toUpperCase()}
                 </p>
-                <p className="text-[#f0ede8] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 800 }}>
+                <p className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700 }}>
                   {athlete[lift].peakingNumber || "—"}
                 </p>
               </div>
@@ -355,16 +432,16 @@ function AthleteDetail({
         </div>
 
         {/* PRs */}
-        <div className="px-5 py-5 border-b border-[rgba(255,255,255,0.06)]">
-          <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>Personal Records</p>
+        <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.08)]">
+          <p className="text-[#666666] text-[10px] tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Personal Records</p>
           <div className="flex gap-2">
             {(["squat", "bench", "deadlift"] as Lift[]).map((lift) => (
               <div key={lift} className="flex-1 text-center">
-                <p className="text-[#444] text-[10px] tracking-widest uppercase mb-1" style={{ fontFamily: "var(--font-mono)" }}>
+                <p className="text-[#777777] text-[9px] tracking-widest uppercase mb-1" style={{ fontFamily: "var(--font-mono)" }}>
                   {lift[0].toUpperCase()}
                 </p>
-                <p className="text-[#f0ede8] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 800 }}>
-                  {athlete[lift].pr || "—"}
+                <p className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700 }}>
+                  {athlete[lift].atpr || "—"}
                 </p>
               </div>
             ))}
@@ -373,8 +450,8 @@ function AthleteDetail({
 
         {/* Records */}
         {(["squat", "bench", "deadlift"] as Lift[]).some((l) => athlete[l].nr || athlete[l].ar || athlete[l].wr) && (
-          <div className="px-5 py-5 border-b border-[rgba(255,255,255,0.06)]">
-            <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>Records</p>
+          <div className="px-5 py-5 border-b border-[rgba(0,0,0,0.08)]">
+            <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>Records</p>
             <div className="flex flex-col gap-2">
               {(["squat", "bench", "deadlift"] as Lift[]).map((lift) => {
                 const ld = athlete[lift];
@@ -382,10 +459,10 @@ function AthleteDetail({
                 if (!records) return null;
                 return (
                   <div key={lift} className="flex items-center gap-3">
-                    <span className="text-[#444] text-[10px] tracking-widest uppercase w-4" style={{ fontFamily: "var(--font-mono)" }}>
+                    <span className="text-[#777777] text-[10px] tracking-widest uppercase w-4" style={{ fontFamily: "var(--font-mono)" }}>
                       {lift[0].toUpperCase()}
                     </span>
-                    <span className="text-[#c9b0db] text-sm" style={{ fontFamily: "var(--font-mono)" }}>{records}</span>
+                    <span className="text-[#FEBF33] text-sm" style={{ fontFamily: "var(--font-mono)" }}>{records}</span>
                   </div>
                 );
               })}
@@ -394,50 +471,30 @@ function AthleteDetail({
         )}
 
         {/* Lift rows */}
-        <div className="flex flex-col divide-y divide-[rgba(255,255,255,0.06)]">
+        <div className="flex flex-col divide-y divide-[rgba(0,0,0,0.08)]">
           {(["squat", "bench", "deadlift"] as Lift[]).map((lift) => (
             <button
               key={lift}
               onClick={() => onLift(lift)}
-              className="flex items-center justify-between px-5 py-5 w-full text-left active:bg-[#111] transition-colors"
+              className="flex items-center justify-between px-5 py-5 w-full text-left active:bg-[#f9f9f9] transition-colors"
             >
-              <span style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 800, color: "#f0ede8" }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 800, color: "#111111" }}>
                 {LIFT_LABELS[lift]}
               </span>
               <div className="flex items-center gap-3">
                 {athlete[lift].peakingNumber && (
-                  <span className="text-[#555]" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+                  <span className="text-[#666666]" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
                     {athlete[lift].peakingNumber} kg
                   </span>
                 )}
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                  <path d="M7 4l6 6-6 6" stroke="#333" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M7 4l6 6-6 6" stroke="#aaaaaa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </button>
           ))}
         </div>
-
-        {/* Total */}
-        <div className="px-5 py-6 border-t border-[rgba(255,255,255,0.08)]">
-          <div className="bg-[#111] rounded-2xl px-5 py-5">
-            <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>
-              Current Total
-            </p>
-            <div className="flex items-end justify-between">
-              <div className="flex items-center gap-3 text-[#666]" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                <span>{s > 0 ? s : "—"}</span>
-                <span className="text-[#333]">+</span>
-                <span>{b > 0 ? b : "—"}</span>
-                <span className="text-[#333]">+</span>
-                <span>{d > 0 ? d : "—"}</span>
-              </div>
-              <span className="text-[#c9b0db] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 48, fontWeight: 900 }}>
-                {total}
-              </span>
-            </div>
-          </div>
-        </div>
+        
         <div className="h-8" />
       </div>
     </div>
@@ -446,9 +503,18 @@ function AthleteDetail({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-[#111] rounded-xl px-4 py-3">
-      <p className="text-[#444] text-[10px] tracking-[0.14em] uppercase mb-0.5" style={{ fontFamily: "var(--font-mono)" }}>{label}</p>
-      <p className="text-[#f0ede8] text-base font-medium" style={{ fontFamily: "var(--font-body)" }}>{value}</p>
+    <div className="bg-[#f9f9f9] rounded-xl px-4 py-3">
+      <p className="text-[#777777] text-[10px] tracking-[0.14em] uppercase mb-0.5" style={{ fontFamily: "var(--font-mono)" }}>{label}</p>
+      <p className="text-[#111111] text-base font-medium" style={{ fontFamily: "var(--font-body)" }}>{value}</p>
+    </div>
+  );
+}
+
+function TopStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <span className="text-[#666666] text-[9px] tracking-widest uppercase mb-0.5" style={{ fontFamily: "var(--font-mono)" }}>{label}</span>
+      <span className="text-[#111111] font-bold text-sm" style={{ fontFamily: "var(--font-mono)" }}>{value || "—"}</span>
     </div>
   );
 }
@@ -467,16 +533,12 @@ function WarmupPage({
   onUpdate: (updated: Athlete) => void;
 }) {
   const [now, setNow] = useState(nowTimeString());
-  // Editing state
   const [editingAnchor, setEditingAnchor] = useState(false);
   const [anchorDraft, setAnchorDraft] = useState("");
-  const [editingGap, setEditingGap] = useState<number | null>(null);
-  const [gapDraft, setGapDraft] = useState("");
   const [editingWarmup, setEditingWarmup] = useState<number | null>(null);
   const [warmupDraft, setWarmupDraft] = useState({ weight: "", reps: "" });
 
   const anchorRef = useRef<HTMLInputElement>(null);
-  const gapRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(nowTimeString()), 10000);
@@ -486,10 +548,6 @@ function WarmupPage({
   useEffect(() => {
     if (editingAnchor) anchorRef.current?.focus();
   }, [editingAnchor]);
-
-  useEffect(() => {
-    if (editingGap !== null) gapRef.current?.select();
-  }, [editingGap]);
 
   const ld = athlete[lift];
 
@@ -503,19 +561,8 @@ function WarmupPage({
   }
 
   function commitAnchor() {
-    patch({ startTime: anchorDraft });
+    patch({ attempt1Time: anchorDraft });
     setEditingAnchor(false);
-  }
-
-  function commitGap() {
-    if (editingGap === null) return;
-    const val = parseInt(gapDraft);
-    if (!isNaN(val) && val > 0) {
-      const gaps = [...ld.gaps];
-      gaps[editingGap] = val;
-      patch({ gaps });
-    }
-    setEditingGap(null);
   }
 
   function commitWarmup() {
@@ -531,58 +578,124 @@ function WarmupPage({
     const warmups = [...ld.warmups, { weight: "", reps: "", done: false }];
     const gaps = [...ld.gaps, 3];
     patch({ warmups, gaps });
-    // Auto-open edit for the new set
     setEditingWarmup(warmups.length - 1);
     setWarmupDraft({ weight: "", reps: "" });
   }
 
   function removeWarmup(idx: number) {
     const warmups = ld.warmups.filter((_, i) => i !== idx);
-    const gaps = ld.gaps.filter((_, i) => i !== idx && i !== idx - 1)
-      .concat(idx > 0 && idx < ld.warmups.length - 1 ? [Math.round((ld.gaps[idx - 1] + ld.gaps[idx]) / 2)] : []);
-    // simpler: just drop the last gap
     const newGaps = ld.gaps.slice(0, warmups.length - 1);
     patch({ warmups, gaps: newGaps });
     if (editingWarmup === idx) setEditingWarmup(null);
   }
 
-  // Compute scheduled times
-  function getTime(idx: number): string {
-    const gapsBefore = ld.gaps.slice(0, idx);
-    return warmupTime(ld.startTime, gapsBefore);
+  function getWarmupTime(idx: number): string {
+    let mins = ld.gapToAttempt1 || 0;
+    for (let i = idx; i < ld.gaps.length; i++) {
+      mins += ld.gaps[i];
+    }
+    return timeSubtract(ld.attempt1Time, mins);
+  }
+
+  function getDrillsTime(): string {
+    let mins = ld.gapToAttempt1 || 0;
+    for (const g of ld.gaps) mins += g;
+    mins += (ld.drillsGap || 0) + (ld.drillsDuration || 0);
+    return timeSubtract(ld.attempt1Time, mins);
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#080808]">
+    <div className="flex flex-col h-full bg-[#ffffff]">
       {/* Header */}
       <div className="px-5 pt-14 pb-4">
-        <button onClick={onBack} className="flex items-center gap-1 text-[#c9b0db] mb-4 active:opacity-60">
+        <button onClick={onBack} className="flex items-center gap-1 text-[#FEBF33] mb-4 active:opacity-60">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path d="M13 4l-6 6 6 6" stroke="#c9b0db" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M13 4l-6 6 6 6" stroke="#FEBF33" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{athlete.name}</span>
         </button>
         <div className="flex items-end justify-between">
-          <h2 className="text-[#f0ede8] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 44, fontWeight: 900 }}>
-            {LIFT_LABELS[lift].toUpperCase()}
-          </h2>
-          <span className="text-[#c9b0db] pb-1" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+          <div className="flex flex-col">
+            <h2 className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 44, fontWeight: 900 }}>
+              {LIFT_LABELS[lift].toUpperCase()}
+            </h2>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[#666666] text-[10px] tracking-widest uppercase" style={{ fontFamily: "var(--font-mono)" }}>BEST</span>
+              <input 
+                value={ld.best}
+                onChange={(e) => patch({ best: e.target.value })}
+                placeholder="kg"
+                className="bg-[#f0f0f0] border border-[rgba(0,0,0,0.15)] rounded px-2 py-1 text-[#111111] text-sm w-16 text-center outline-none focus:border-[#FEBF33]"
+              />
+            </div>
+          </div>
+          <span className="text-[#FEBF33] pb-1" style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 700 }}>
             {now}
           </span>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5">
-        {/* PR */}
-        <div className="flex items-center justify-between bg-[#111] rounded-2xl px-5 py-4 mb-5">
-          <span className="text-[#555] text-sm tracking-[0.15em] uppercase" style={{ fontFamily: "var(--font-mono)" }}>PR</span>
-          <span className="text-[#f0ede8]" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 800 }}>
-            {ld.pr || "—"}
-          </span>
+        
+        {/* Top Records Area */}
+        <div className="grid grid-cols-3 gap-y-3 gap-x-2 mb-4 bg-[#f9f9f9] rounded-2xl p-4 border border-[rgba(0,0,0,0.06)]">
+          <TopStat label="PEAK" value={ld.peakingNumber} />
+          <TopStat label="ATPR" value={ld.atpr} />
+          <TopStat label="COMP" value={ld.compPr} />
+          {ld.nr && <TopStat label="NR" value={ld.nr} />}
+          {ld.ar && <TopStat label="AR" value={ld.ar} />}
+          {ld.wr && <TopStat label="WR" value={ld.wr} />}
+        </div>
+
+        {/* __ of __ to OPEN */}
+        <div className="flex items-center gap-2 mb-6">
+          <input value={ld.openCurrent} onChange={e => patch({openCurrent: e.target.value})} className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.15)] focus:border-[#FEBF33] text-[#111111] text-center w-10 py-1 rounded outline-none text-sm" />
+          <span className="text-[#666666] text-[10px] uppercase tracking-widest" style={{ fontFamily: "var(--font-mono)" }}>of</span>
+          <input value={ld.openTotal} onChange={e => patch({openTotal: e.target.value})} className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.15)] focus:border-[#FEBF33] text-[#111111] text-center w-10 py-1 rounded outline-none text-sm" />
+          <span className="text-[#666666] text-[10px] uppercase tracking-widest" style={{ fontFamily: "var(--font-mono)" }}>to OPEN</span>
+        </div>
+
+        {/* Drills */}
+        <div className="mb-1">
+          <div className="flex items-center gap-2.5 py-1">
+            <button
+              onClick={() => patch({ drillsDone: !ld.drillsDone })}
+              className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${
+                ld.drillsDone ? "bg-[#FEBF33] border-[#FEBF33]" : "border-[#dddddd] bg-transparent"
+              }`}
+            >
+              {ld.drillsDone && (
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 7l4 4 6-6" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+            <div className="flex-1 bg-[#f0ede6] rounded-xl px-4 py-3 flex items-center justify-between">
+              <span className="text-[#111111] tracking-widest uppercase font-bold text-[11px]" style={{ fontFamily: "var(--font-mono)" }}>[DRILLS]</span>
+              <div className="flex items-center gap-1">
+                <input value={ld.drillsDuration || ""} onChange={e => patch({drillsDuration: parseInt(e.target.value) || 0})} className="bg-transparent border-b border-[#111111] w-8 text-center text-[#111111] font-bold outline-none" />
+                <span className="text-[#111111] text-[10px] uppercase font-bold" style={{ fontFamily: "var(--font-mono)" }}>min</span>
+              </div>
+            </div>
+            <div className="rounded-xl px-2 py-3 min-w-[76px] text-center bg-[#cc2200]">
+              <span className="text-white" style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 500 }}>
+                {getDrillsTime()}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 py-0.5">
+            <div className="w-8" />
+            <div className="flex items-center gap-1.5 flex-1">
+              <input value={ld.drillsGap || ""} onChange={e => patch({drillsGap: parseInt(e.target.value) || 0})} className="w-10 bg-[#eaf5dd] border border-[#FEBF33] rounded-md text-[#FEBF33] text-xs font-bold text-center outline-none py-1" />
+              <div className="flex-1 h-px bg-[rgba(0,0,0,0.08)]" />
+              <span className="text-[#666666] text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>min</span>
+            </div>
+            <div className="w-[76px]" />
+          </div>
         </div>
 
         {/* Warmups label */}
-        <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-4" style={{ fontFamily: "var(--font-mono)" }}>
+        <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mt-4 mb-3" style={{ fontFamily: "var(--font-mono)" }}>
           Warmups
         </p>
 
@@ -590,28 +703,25 @@ function WarmupPage({
         <div className="flex flex-col">
           {ld.warmups.map((w, idx) => {
             const isEditingThis = editingWarmup === idx;
-            const timeStr = getTime(idx);
-            const isAnchor = idx === 0;
+            const timeStr = getWarmupTime(idx);
 
             return (
               <div key={idx}>
                 {/* Warmup row */}
                 <div className="flex items-center gap-2.5 py-1">
-                  {/* Checkbox */}
                   <button
                     onClick={() => { if (!isEditingThis) toggleDone(idx); }}
                     className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${
-                      w.done ? "bg-[#c9b0db] border-[#c9b0db]" : "border-[#333] bg-transparent"
+                      w.done ? "bg-[#FEBF33] border-[#FEBF33]" : "border-[#dddddd] bg-transparent"
                     }`}
                   >
                     {w.done && (
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M2 7l4 4 6-6" stroke="#080808" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M2 7l4 4 6-6" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
                   </button>
 
-                  {/* Weight×Reps — tap to edit */}
                   {isEditingThis ? (
                     <div
                       className="flex-1 flex gap-1.5 items-center"
@@ -627,25 +737,25 @@ function WarmupPage({
                         onChange={(e) => setWarmupDraft((d) => ({ ...d, weight: e.target.value }))}
                         placeholder="kg"
                         inputMode="decimal"
-                        className="flex-1 bg-[#222] border border-[#c9b0db] rounded-xl px-3 py-2.5 text-[#f0ede8] text-lg outline-none text-center"
+                        className="flex-1 bg-[#f0f0f0] border border-[#FEBF33] rounded-xl px-3 py-2.5 text-[#111111] text-lg outline-none text-center"
                         style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}
                         onKeyDown={(e) => e.key === "Enter" && commitWarmup()}
                       />
-                      <span className="text-[#444]" style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>×</span>
+                      <span className="text-[#777777]" style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>×</span>
                       <input
                         value={warmupDraft.reps}
                         onChange={(e) => setWarmupDraft((d) => ({ ...d, reps: e.target.value }))}
                         placeholder="reps"
                         inputMode="numeric"
-                        className="flex-1 bg-[#222] border border-[#c9b0db] rounded-xl px-3 py-2.5 text-[#f0ede8] text-lg outline-none text-center"
+                        className="flex-1 bg-[#f0f0f0] border border-[#FEBF33] rounded-xl px-3 py-2.5 text-[#111111] text-lg outline-none text-center"
                         style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}
                         onKeyDown={(e) => e.key === "Enter" && commitWarmup()}
                       />
                     </div>
                   ) : (
                     <button
-                      className={`flex-1 rounded-xl px-4 py-3 text-left border transition-colors active:border-[#c9b0db] ${
-                        w.done ? "bg-[#111] border-[rgba(255,255,255,0.04)]" : "bg-[#111] border-[rgba(255,255,255,0.06)]"
+                      className={`flex-1 rounded-xl px-4 py-3 text-left border transition-colors active:border-[#FEBF33] ${
+                        w.done ? "bg-[#f9f9f9] border-[rgba(0,0,0,0.06)]" : "bg-[#f9f9f9] border-[rgba(0,0,0,0.08)]"
                       }`}
                       onClick={() => {
                         setEditingWarmup(idx);
@@ -653,7 +763,7 @@ function WarmupPage({
                       }}
                     >
                       <span
-                        className={w.done ? "text-[#444] line-through" : "text-[#f0ede8]"}
+                        className={w.done ? "text-[#777777] line-through" : "text-[#111111]"}
                         style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700 }}
                       >
                         {w.weight || "—"}×{w.reps || "—"}
@@ -661,43 +771,20 @@ function WarmupPage({
                     </button>
                   )}
 
-                  {/* Time pill — anchor is editable, rest are auto */}
-                  {isAnchor && editingAnchor ? (
-                    <input
-                      ref={anchorRef}
-                      type="time"
-                      value={anchorDraft}
-                      onChange={(e) => setAnchorDraft(e.target.value)}
-                      onBlur={commitAnchor}
-                      onKeyDown={(e) => e.key === "Enter" && commitAnchor()}
-                      className="bg-[#cc2200] rounded-xl px-2 py-3 text-white text-sm outline-none border border-[#ff5533] w-[90px] text-center"
-                      style={{ fontFamily: "var(--font-mono)" }}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (isAnchor) {
-                          setAnchorDraft(ld.startTime || nowHHMM());
-                          setEditingAnchor(true);
-                        }
-                      }}
-                      className={`rounded-xl px-3 py-3 min-w-[82px] text-center transition-opacity ${
-                        w.done ? "bg-[#1a1a1a]" : "bg-[#cc2200]"
-                      } ${isAnchor ? "active:opacity-70" : "cursor-default"}`}
+                  <div className={`rounded-xl px-2 py-3 min-w-[76px] text-center transition-opacity ${
+                    w.done ? "bg-[#f0f0f0]" : "bg-[#cc2200]"
+                  }`}>
+                    <span
+                      className={w.done ? "text-[#777777]" : "text-white"}
+                      style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 500 }}
                     >
-                      <span
-                        className={w.done ? "text-[#444]" : "text-white"}
-                        style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}
-                      >
-                        {timeStr}
-                      </span>
-                    </button>
-                  )}
+                      {timeStr}
+                    </span>
+                  </div>
 
-                  {/* Delete row */}
                   <button
                     onClick={() => removeWarmup(idx)}
-                    className="text-[#2a2a2a] active:text-[#ff4040] transition-colors shrink-0 w-6 flex justify-center"
+                    className="text-[#666666] active:text-[#ff4040] transition-colors shrink-0 w-5 flex justify-center"
                   >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                       <path d="M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -710,79 +797,120 @@ function WarmupPage({
                   <div className="flex items-center gap-2.5 py-0.5">
                     <div className="w-8" />
                     <div className="flex items-center gap-1.5 flex-1">
-                      {editingGap === idx ? (
-                        <input
-                          ref={gapRef}
-                          type="number"
-                          min={1}
-                          max={60}
-                          value={gapDraft}
-                          onChange={(e) => setGapDraft(e.target.value)}
-                          onBlur={commitGap}
-                          onKeyDown={(e) => e.key === "Enter" && commitGap()}
-                          className="w-10 bg-[#1a3300] border border-[#c9b0db] rounded-md text-[#c9b0db] text-xs text-center outline-none py-1"
-                          style={{ fontFamily: "var(--font-mono)" }}
-                        />
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setEditingGap(idx);
-                            setGapDraft(String(ld.gaps[idx] ?? 3));
-                          }}
-                          className="w-7 h-7 rounded-md bg-[#1a3300] text-[#c9b0db] flex items-center justify-center text-xs font-bold active:bg-[#2a4400] transition-colors"
-                          style={{ fontFamily: "var(--font-mono)" }}
-                        >
-                          {ld.gaps[idx] ?? 3}
-                        </button>
-                      )}
-                      <div className="flex-1 h-px bg-[rgba(255,255,255,0.04)]" />
-                      <span className="text-[#2a2a2a] text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>min</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={ld.gaps[idx] || ""}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          const gaps = [...ld.gaps];
+                          gaps[idx] = val;
+                          patch({ gaps });
+                        }}
+                        className="w-10 bg-[#eaf5dd] border border-[#FEBF33] rounded-md text-[#FEBF33] text-xs font-bold text-center outline-none py-1"
+                        style={{ fontFamily: "var(--font-mono)" }}
+                      />
+                      <div className="flex-1 h-px bg-[rgba(0,0,0,0.08)]" />
+                      <span className="text-[#666666] text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>min</span>
                     </div>
-                    <div className="w-6" />
+                    <div className="w-[76px]" />
                   </div>
                 )}
               </div>
             );
           })}
 
-          {/* Add warmup */}
           <button
             onClick={addWarmup}
             className="flex items-center gap-2.5 py-3 w-full active:opacity-60 transition-opacity mt-1"
           >
-            <div className="w-8 h-8 rounded-lg border border-dashed border-[#333] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg border border-dashed border-[#dddddd] flex items-center justify-center shrink-0">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M6 2v8M2 6h8" stroke="#555" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M6 2v8M2 6h8" stroke="#999999" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
-            <span className="text-[#444] text-sm" style={{ fontFamily: "var(--font-body)" }}>Add warmup set</span>
+            <span className="text-[#777777] text-sm" style={{ fontFamily: "var(--font-body)" }}>Add warmup set</span>
           </button>
         </div>
 
+        {/* Gap to Attempt 1 */}
+        {ld.warmups.length > 0 && (
+          <div className="flex items-center gap-2.5 py-0.5 mb-2 mt-4">
+            <div className="w-8" />
+            <div className="flex items-center gap-1.5 flex-1">
+              <input value={ld.gapToAttempt1 || ""} onChange={e => patch({gapToAttempt1: parseInt(e.target.value) || 0})} className="w-10 bg-[#eaf5dd] border border-[#FEBF33] rounded-md text-[#FEBF33] text-xs font-bold text-center outline-none py-1" />
+              <div className="flex-1 h-px bg-[rgba(0,0,0,0.08)]" />
+              <span className="text-[#666666] text-[10px]" style={{ fontFamily: "var(--font-mono)" }}>min</span>
+            </div>
+            <div className="w-[76px]" />
+          </div>
+        )}
+
         {/* Attempts */}
-        <div className="mt-5 mb-2">
-          <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>
+        <div className="mt-2 mb-6">
+          <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>
             Attempts
           </p>
           <div className="flex flex-col gap-2">
             {[
-              { label: "Attempt 1", value: ld.attempt1 },
-              { label: "Attempt 2", value: ld.attempt2 },
-              { label: "Attempt 3", value: ld.attempt3 },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="bg-[#0d2200] border border-[rgba(201,176,219,0.15)] rounded-2xl px-5 py-3 flex items-center justify-between"
-              >
-                <span className="text-[#6a8a40] text-xs tracking-[0.12em] uppercase" style={{ fontFamily: "var(--font-mono)" }}>
+              { key: "attempt1", label: "Attempt 1", value: ld.attempt1 },
+              { key: "attempt2", label: "Attempt 2", value: ld.attempt2 },
+              { key: "attempt3", label: "Attempt 3", value: ld.attempt3 },
+            ].map(({ key, label, value }, idx) => (
+              <div key={label} className="bg-[#f7fcf0] border border-[rgba(201,176,219,0.5)] rounded-2xl px-4 py-3 flex items-center justify-between">
+                <span className="text-[#4a6b22] text-[10px] tracking-[0.12em] uppercase w-16" style={{ fontFamily: "var(--font-mono)" }}>
                   {label}
                 </span>
-                <span className="text-[#c9b0db]" style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800 }}>
-                  {value || "—"}
-                </span>
+                <input
+                  value={value}
+                  onChange={e => patch({ [key]: e.target.value })}
+                  placeholder="—"
+                  className="bg-transparent text-right text-[#FEBF33] outline-none flex-1 min-w-0"
+                  style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 800 }}
+                />
+                {idx === 0 && (
+                  <div className="ml-3 pl-3 border-l border-[rgba(0,0,0,0.15)]">
+                    {editingAnchor ? (
+                      <input
+                        ref={anchorRef}
+                        type="time"
+                        value={anchorDraft}
+                        onChange={(e) => setAnchorDraft(e.target.value)}
+                        onBlur={commitAnchor}
+                        onKeyDown={(e) => e.key === "Enter" && commitAnchor()}
+                        className="bg-[#cc2200] rounded-xl px-1 py-2 text-white text-sm outline-none border border-[#ff5533] w-[76px] text-center"
+                        style={{ fontFamily: "var(--font-mono)" }}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setAnchorDraft(ld.attempt1Time || nowHHMM());
+                          setEditingAnchor(true);
+                        }}
+                        className="bg-[#cc2200] rounded-xl px-1 py-2 text-white text-[13px] font-medium outline-none border border-transparent w-[76px] text-center active:opacity-70"
+                        style={{ fontFamily: "var(--font-mono)" }}
+                      >
+                        {ld.attempt1Time || "--:--"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Notes */}
+        <div className="mb-6">
+          <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Notes</p>
+          <textarea
+            value={ld.notes}
+            onChange={(e) => patch({ notes: e.target.value })}
+            className="w-full bg-[#f9f9f9] border border-[rgba(0,0,0,0.08)] rounded-xl p-4 text-[#111111] text-sm outline-none focus:border-[#FEBF33] transition-colors min-h-[120px]"
+            placeholder="Any notes for this lift..."
+            style={{ fontFamily: "var(--font-body)" }}
+          />
         </div>
 
         <div className="h-10" />
@@ -836,15 +964,15 @@ function SetupPage({
   const tabLabels: Record<string, string> = { info: "Info", squat: "Squat", bench: "Bench", deadlift: "Dead" };
 
   return (
-    <div className="flex flex-col h-full bg-[#080808]">
+    <div className="flex flex-col h-full bg-[#ffffff]">
       <div className="px-5 pt-14 pb-4 flex items-center justify-between">
-        <button onClick={onCancel} className="text-[#555] active:text-[#f0ede8] transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+        <button onClick={onCancel} className="text-[#666666] active:text-[#111111] transition-colors" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
           Cancel
         </button>
-        <h2 className="text-[#f0ede8]" style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800 }}>
+        <h2 className="text-[#111111]" style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800 }}>
           {initialAthlete.name ? initialAthlete.name.toUpperCase() : "NEW ATHLETE"}
         </h2>
-        <button onClick={() => onSave(a)} className="text-[#c9b0db] active:opacity-60" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+        <button onClick={() => onSave(a)} className="text-[#FEBF33] active:opacity-60" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
           Save
         </button>
       </div>
@@ -855,7 +983,7 @@ function SetupPage({
             key={t}
             onClick={() => setActiveTab(t)}
             className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors ${
-              activeTab === t ? "bg-[#c9b0db] text-[#080808]" : "bg-[#1a1a1a] text-[#555]"
+              activeTab === t ? "bg-[#FEBF33] text-[#111111]" : "bg-[#f0f0f0] text-[#666666]"
             }`}
             style={{ fontFamily: "var(--font-mono)" }}
           >
@@ -868,11 +996,16 @@ function SetupPage({
         {activeTab === "info" && (
           <div className="flex flex-col gap-4">
             <Input label="Name" value={a.name} onChange={(v) => setField("name", v)} placeholder="Athlete name" />
+            <Input label="Age Category" value={a.ageCategory} onChange={(v) => setField("ageCategory", v)} placeholder="e.g. Junior" />
+            <Input label="Lot Number" value={a.lotNumber} onChange={(v) => setField("lotNumber", v)} placeholder="e.g. 9" />
+            <Input label="Body Weight (kg)" value={a.bodyWeight} onChange={(v) => setField("bodyWeight", v)} placeholder="e.g. 82.9" />
             <Input label="Weight Class (kg)" value={a.weightClass} onChange={(v) => setField("weightClass", v)} placeholder="e.g. 83" />
             <Input label="Squat Rack Height" value={a.squatRackHeight} onChange={(v) => setField("squatRackHeight", v)} placeholder="e.g. 5" />
             <Input label="Bench Rack Height" value={a.benchRackHeight} onChange={(v) => setField("benchRackHeight", v)} placeholder="e.g. 3" />
+            <Input label="Bench Safety Height" value={a.benchSafetyHeight} onChange={(v) => setField("benchSafetyHeight", v)} placeholder="e.g. 2" />
+            <Input label="Lift Off" value={a.liftOff} onChange={(v) => setField("liftOff", v)} placeholder="Yes / No" />
             <div className="mt-2">
-              <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Danger Zone</p>
+              <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Danger Zone</p>
               <button
                 onClick={onDelete}
                 className="w-full py-3 rounded-xl border border-[rgba(255,60,60,0.3)] text-[#ff4040] text-sm active:bg-[rgba(255,60,60,0.1)] transition-colors"
@@ -917,10 +1050,11 @@ function LiftSetupForm({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <p className="text-[#555] text-xs tracking-[0.18em] uppercase" style={{ fontFamily: "var(--font-mono)" }}>Numbers</p>
+        <p className="text-[#666666] text-xs tracking-[0.18em] uppercase" style={{ fontFamily: "var(--font-mono)" }}>Numbers</p>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Peaking Number" value={ld.peakingNumber} onChange={(v) => onChange("peakingNumber", v)} placeholder="e.g. 200" />
-          <Input label="PR" value={ld.pr} onChange={(v) => onChange("pr", v)} placeholder="e.g. 195" />
+          <Input label="ATPR" value={ld.atpr} onChange={(v) => onChange("atpr", v)} placeholder="e.g. 195" />
+          <Input label="COMP PR" value={ld.compPr} onChange={(v) => onChange("compPr", v)} placeholder="e.g. 190" />
           <Input label="NR" value={ld.nr} onChange={(v) => onChange("nr", v)} placeholder="National record" />
           <Input label="AR" value={ld.ar} onChange={(v) => onChange("ar", v)} placeholder="Asian record" />
           <Input label="WR" value={ld.wr} onChange={(v) => onChange("wr", v)} placeholder="World record" />
@@ -928,35 +1062,35 @@ function LiftSetupForm({
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="text-[#555] text-xs tracking-[0.18em] uppercase" style={{ fontFamily: "var(--font-mono)" }}>Attempts</p>
+        <p className="text-[#666666] text-xs tracking-[0.18em] uppercase" style={{ fontFamily: "var(--font-mono)" }}>Attempts</p>
         <Input label="Attempt 1" value={ld.attempt1} onChange={(v) => onChange("attempt1", v)} placeholder="e.g. 185" />
         <Input label="Attempt 2 (use | for options)" value={ld.attempt2} onChange={(v) => onChange("attempt2", v)} placeholder="e.g. 192.5|195|197.5" />
         <Input label="Attempt 3" value={ld.attempt3} onChange={(v) => onChange("attempt3", v)} placeholder="e.g. 200" />
       </div>
 
       <div>
-        <p className="text-[#555] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Warmup Sets</p>
+        <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Warmup Sets</p>
         <div className="flex flex-col gap-2">
           {ld.warmups.map((w, idx) => (
             <div key={idx} className="flex items-center gap-2">
-              <span className="text-[#444] w-5 text-center text-sm shrink-0" style={{ fontFamily: "var(--font-mono)" }}>{idx + 1}</span>
+              <span className="text-[#777777] w-5 text-center text-sm shrink-0" style={{ fontFamily: "var(--font-mono)" }}>{idx + 1}</span>
               <div className="flex-1 grid grid-cols-2 gap-2">
                 <input
                   value={w.weight}
                   onChange={(e) => onWarmupChange(idx, "weight", e.target.value)}
                   placeholder="Weight"
-                  className="bg-[#1a1a1a] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2.5 text-[#f0ede8] text-sm outline-none focus:border-[#c9b0db] transition-colors"
+                  className="bg-[#f0f0f0] border border-[rgba(0,0,0,0.15)] rounded-lg px-3 py-2.5 text-[#111111] text-sm outline-none focus:border-[#FEBF33] transition-colors"
                   style={{ fontFamily: "var(--font-body)" }}
                 />
                 <input
                   value={w.reps}
                   onChange={(e) => onWarmupChange(idx, "reps", e.target.value)}
                   placeholder="Reps"
-                  className="bg-[#1a1a1a] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2.5 text-[#f0ede8] text-sm outline-none focus:border-[#c9b0db] transition-colors"
+                  className="bg-[#f0f0f0] border border-[rgba(0,0,0,0.15)] rounded-lg px-3 py-2.5 text-[#111111] text-sm outline-none focus:border-[#FEBF33] transition-colors"
                   style={{ fontFamily: "var(--font-body)" }}
                 />
               </div>
-              <button onClick={() => onRemoveWarmup(idx)} className="text-[#333] active:text-[#ff4040] transition-colors shrink-0">
+              <button onClick={() => onRemoveWarmup(idx)} className="text-[#aaaaaa] active:text-[#ff4040] transition-colors shrink-0">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
@@ -966,7 +1100,7 @@ function LiftSetupForm({
         </div>
         <button
           onClick={onAddWarmup}
-          className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-[#333] text-[#444] text-sm active:border-[#c9b0db] active:text-[#c9b0db] transition-colors"
+          className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-[#dddddd] text-[#777777] text-sm active:border-[#FEBF33] active:text-[#FEBF33] transition-colors"
           style={{ fontFamily: "var(--font-body)" }}
         >
           + Add Set

@@ -24,13 +24,13 @@ A local-first, mobile-optimized web application designed to help powerlifting co
 ## 🛠 Tech Stack
 
 - **Framework:** React 19 + Vite 8
-- **Styling:** Tailwind CSS v4 (Custom dark theme with `#c9b0db` accent)
+- **Styling:** Tailwind CSS v4 (Clean light theme with `#FEBF33` accent)
 - **State Management:** React Hooks + `localStorage` (Local-first architecture, no database required)
 - **Deployment:** Vercel (or any static hosting provider)
 
 ## 🎨 Design & Aesthetics
 - Mobile-first layout optimized for use on an iPhone during a busy meet.
-- High-contrast dark mode for battery saving and visibility.
+- Clean light mode for high contrast and readability under bright gym lighting.
 - Tap-friendly touch targets for on-the-fly editing.
 
 ## 🚀 Getting Started Locally

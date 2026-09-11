@@ -1,32 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
 @theme inline {
-  --color-background: #080808;
-  --color-foreground: #f0ede8;
+  --color-background: #ffffff;
+  --color-foreground: #111111;
   --color-card: #111111;
-  --color-card-foreground: #f0ede8;
-  --color-primary: #c9b0db;
-  --color-primary-foreground: #080808;
+  --color-card-foreground: #111111;
+  --color-primary: #febf33;
+  --color-primary-foreground: #ffffff;
   --color-secondary: #1a1a1a;
   --color-secondary-foreground: #a0a0a0;
   --color-muted: #1a1a1a;
   --color-muted-foreground: #666666;
-  --color-accent: #c9b0db;
-  --color-accent-foreground: #080808;
-  --color-border: rgba(255,255,255,0.08);
-  --color-ring: #c9b0db;
+  --color-accent: #febf33;
+  --color-accent-foreground: #ffffff;
+  --color-border: rgba(0,0,0,0.1);
+  --color-ring: #febf33;
 
-  --font-display: 'Barlow Condensed', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-display: 'Montserrat', sans-serif;
+  --font-body: 'Montserrat', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
 html, body, #root {
   height: 100%;
-  background: #080808;
+  background: #ffffff;
 }
 
 * {
