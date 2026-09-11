@@ -292,7 +292,7 @@ function SortableAthleteItem({ athlete, onSelect }: { athlete: Athlete; onSelect
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform"
+      className="bg-[#f9f9f9] border border-[rgba(0,0,0,0.08)] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform shrink-0"
     >
       <div className="px-3 py-4 flex items-center justify-between">
         {/* Drag Handle */}
