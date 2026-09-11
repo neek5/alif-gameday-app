@@ -1417,70 +1417,67 @@ function GamedayPage({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-24">Athlete</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">BW</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>SQ</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>BP</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">DL 1</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">DL 2</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">DL 3</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-16">Total</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-20">Athlete</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">BW</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">Best<br/>SQ</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">Best<br/>BP</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">DL 1</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">DL 2</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">DL 3</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-12">Total</th>
               </tr>
             </thead>
             <tbody>
               {calculatedRows.map((r, idx) => {
-                // If main athlete, the whole row is filled with yellow, else it's a white row with beige left border.
                 const rowBg = r.isMain ? "bg-[#FEBF33]" : "bg-white";
-                // Since the first cell is sticky, it needs an explicit background to cover scrolling content underneath.
                 const stickyBg = r.isMain ? "bg-[#FEBF33]" : "bg-white";
                 const borderCls = r.isMain ? "" : "border-l-4 border-l-[#F5E6C4]";
-                // Inputs need to adapt their text color for contrast if the background is yellow (though yellow and black text work great)
-                const inputCls = `w-full bg-transparent outline-none text-center font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-sm`;
-                const textCls = `w-full bg-transparent outline-none font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-sm`;
+                const inputCls = `w-full bg-transparent outline-none text-center font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-[13px]`;
+                const textCls = `w-full bg-transparent outline-none font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-[13px]`;
                 
                 return (
                   <tr key={r.id} className={`${rowBg} ${borderCls} border-b border-b-[rgba(0,0,0,0.04)]`}>
-                    <td className={`p-2 sticky left-0 z-10 ${stickyBg} shadow-[1px_0_0_0_rgba(0,0,0,0.04)]`}>
-                      <div className="flex items-center gap-2 w-full">
-                        <div className={`w-5 flex items-center justify-center font-bold text-sm ${r.isMain ? 'text-[#111]' : 'text-[#888]'} relative group`}>
+                    <td className={`px-1 py-2 sticky left-0 z-10 ${stickyBg} shadow-[1px_0_0_0_rgba(0,0,0,0.04)]`}>
+                      <div className="flex items-center gap-1 w-full">
+                        <div className={`w-4 flex items-center justify-center font-bold text-xs ${r.isMain ? 'text-[#111]' : 'text-[#888]'} relative group`}>
                           {!r.isMain && (
-                            <button onClick={() => deleteOpponent(r.id)} className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#eee] rounded flex items-center justify-center text-[#888] hover:bg-red-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 z-10">
-                              <span className="text-xs font-bold leading-none -mt-0.5">×</span>
+                            <button onClick={() => deleteOpponent(r.id)} className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#eee] rounded flex items-center justify-center text-[#888] hover:bg-red-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 z-10">
+                              <span className="text-[10px] font-bold leading-none -mt-0.5">×</span>
                             </button>
                           )}
                           <span>{idx + 1}</span>
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 overflow-hidden">
                           {r.isMain ? (
-                            <div className="font-semibold text-sm truncate text-[#111]">{r.name}</div>
+                            <div className="font-semibold text-[13px] truncate text-[#111]">{r.name}</div>
                           ) : (
                             <input value={r.name} onChange={e => updateOpponent(r.id, "name", e.target.value)} className={textCls} placeholder="Name" />
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="p-2">
+                    <td className="px-1 py-2">
                       {r.isMain ? (
-                        <div className="text-center font-semibold text-sm text-[#111]">{r.bw}</div>
+                        <div className="text-center font-semibold text-[13px] text-[#111]">{r.bw}</div>
                       ) : (
                         <input value={r.bw} onChange={e => updateOpponent(r.id, "bw", e.target.value)} className={inputCls} placeholder="—" />
                       )}
                     </td>
-                    <td className="p-2">
+                    <td className="px-1 py-2">
                       {r.isMain ? (
-                        <div className="text-center font-semibold text-sm text-[#111]">{r.bestSq}</div>
+                        <div className="text-center font-semibold text-[13px] text-[#111]">{r.bestSq}</div>
                       ) : (
                         <input value={r.bestSq} onChange={e => updateOpponent(r.id, "bestSq", e.target.value)} className={inputCls} placeholder="—" />
                       )}
                     </td>
-                    <td className="p-2">
+                    <td className="px-1 py-2">
                       {r.isMain ? (
-                        <div className="text-center font-semibold text-sm text-[#111]">{r.bestBp}</div>
+                        <div className="text-center font-semibold text-[13px] text-[#111]">{r.bestBp}</div>
                       ) : (
                         <input value={r.bestBp} onChange={e => updateOpponent(r.id, "bestBp", e.target.value)} className={inputCls} placeholder="—" />
                       )}
                     </td>
-                    <td className="p-2">
+                    <td className="px-1 py-2">
                       <input 
                         value={r.dl1} 
                         onChange={e => r.isMain ? updateMainDL("dl1", e.target.value) : updateOpponent(r.id, "dl1", e.target.value)} 
@@ -1488,7 +1485,7 @@ function GamedayPage({
                         placeholder="—"
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="px-1 py-2">
                       <input 
                         value={r.dl2} 
                         onChange={e => r.isMain ? updateMainDL("dl2", e.target.value) : updateOpponent(r.id, "dl2", e.target.value)} 
@@ -1496,7 +1493,7 @@ function GamedayPage({
                         placeholder="—"
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="px-1 py-2">
                       <input 
                         value={r.dl3} 
                         onChange={e => r.isMain ? updateMainDL("dl3", e.target.value) : updateOpponent(r.id, "dl3", e.target.value)} 
@@ -1504,7 +1501,7 @@ function GamedayPage({
                         placeholder="—"
                       />
                     </td>
-                    <td className="p-2 text-center font-bold text-sm text-[#111]">
+                    <td className="px-1 py-2 text-center font-bold text-[13px] text-[#111]">
                       {r.total > 0 ? r.total : "—"}
                     </td>
                   </tr>
