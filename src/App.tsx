@@ -1413,12 +1413,11 @@ function GamedayPage({
       </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-auto px-5 pb-24">
-        <div className="min-w-[700px]">
+        <div className="w-max min-w-full pb-4">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-8">#</th>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left min-w-[120px]">Athlete</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-36">Athlete</th>
                 <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">BW</th>
                 <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>SQ</th>
                 <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>BP</th>
@@ -1430,44 +1429,53 @@ function GamedayPage({
             </thead>
             <tbody>
               {calculatedRows.map((r, idx) => {
-                const borderCls = r.isMain ? "border-l-4 border-l-[#FEBF33]" : "border-l-4 border-l-[#F5E6C4]";
-                const inputCls = "w-full bg-transparent outline-none text-center font-semibold text-[#111] placeholder:text-[#ccc] text-sm";
-                const textCls = "w-full bg-transparent outline-none font-semibold text-[#111] placeholder:text-[#ccc] text-sm";
+                // If main athlete, the whole row is filled with yellow, else it's a white row with beige left border.
+                const rowBg = r.isMain ? "bg-[#FEBF33]" : "bg-white";
+                // Since the first cell is sticky, it needs an explicit background to cover scrolling content underneath.
+                const stickyBg = r.isMain ? "bg-[#FEBF33]" : "bg-white";
+                const borderCls = r.isMain ? "" : "border-l-4 border-l-[#F5E6C4]";
+                // Inputs need to adapt their text color for contrast if the background is yellow (though yellow and black text work great)
+                const inputCls = `w-full bg-transparent outline-none text-center font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-sm`;
+                const textCls = `w-full bg-transparent outline-none font-semibold text-[#111] ${r.isMain ? 'placeholder:text-[rgba(0,0,0,0.3)]' : 'placeholder:text-[#ccc]'} text-sm`;
                 
                 return (
-                  <tr key={r.id} className={`${borderCls} border-b border-b-[rgba(0,0,0,0.04)]`}>
-                    <td className="p-2 text-center font-bold text-sm text-[#888] relative group">
-                      {!r.isMain && (
-                        <button onClick={() => deleteOpponent(r.id)} className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#eee] rounded flex items-center justify-center text-[#888] hover:bg-red-500 hover:text-white transition-colors">
-                          <span className="text-xs font-bold leading-none -mt-0.5">×</span>
-                        </button>
-                      )}
-                      {idx + 1}
+                  <tr key={r.id} className={`${rowBg} ${borderCls} border-b border-b-[rgba(0,0,0,0.04)]`}>
+                    <td className={`p-2 sticky left-0 z-10 ${stickyBg} shadow-[1px_0_0_0_rgba(0,0,0,0.04)]`}>
+                      <div className="flex items-center gap-2 w-full">
+                        <div className={`w-5 flex items-center justify-center font-bold text-sm ${r.isMain ? 'text-[#111]' : 'text-[#888]'} relative group`}>
+                          {!r.isMain && (
+                            <button onClick={() => deleteOpponent(r.id)} className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 bg-[#eee] rounded flex items-center justify-center text-[#888] hover:bg-red-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 z-10">
+                              <span className="text-xs font-bold leading-none -mt-0.5">×</span>
+                            </button>
+                          )}
+                          <span>{idx + 1}</span>
+                        </div>
+                        <div className="flex-1">
+                          {r.isMain ? (
+                            <div className="font-semibold text-sm truncate text-[#111]">{r.name}</div>
+                          ) : (
+                            <input value={r.name} onChange={e => updateOpponent(r.id, "name", e.target.value)} className={textCls} placeholder="Name" />
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-2">
                       {r.isMain ? (
-                        <div className="font-semibold text-sm truncate">{r.name}</div>
-                      ) : (
-                        <input value={r.name} onChange={e => updateOpponent(r.id, "name", e.target.value)} className={textCls} placeholder="Name" />
-                      )}
-                    </td>
-                    <td className="p-2">
-                      {r.isMain ? (
-                        <div className="text-center font-semibold text-sm">{r.bw}</div>
+                        <div className="text-center font-semibold text-sm text-[#111]">{r.bw}</div>
                       ) : (
                         <input value={r.bw} onChange={e => updateOpponent(r.id, "bw", e.target.value)} className={inputCls} placeholder="—" />
                       )}
                     </td>
                     <td className="p-2">
                       {r.isMain ? (
-                        <div className="text-center font-semibold text-sm">{r.bestSq}</div>
+                        <div className="text-center font-semibold text-sm text-[#111]">{r.bestSq}</div>
                       ) : (
                         <input value={r.bestSq} onChange={e => updateOpponent(r.id, "bestSq", e.target.value)} className={inputCls} placeholder="—" />
                       )}
                     </td>
                     <td className="p-2">
                       {r.isMain ? (
-                        <div className="text-center font-semibold text-sm">{r.bestBp}</div>
+                        <div className="text-center font-semibold text-sm text-[#111]">{r.bestBp}</div>
                       ) : (
                         <input value={r.bestBp} onChange={e => updateOpponent(r.id, "bestBp", e.target.value)} className={inputCls} placeholder="—" />
                       )}
