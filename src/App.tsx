@@ -1417,7 +1417,7 @@ function GamedayPage({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-36">Athlete</th>
+                <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-left sticky left-0 z-10 bg-white shadow-[1px_0_0_0_rgba(0,0,0,0.04)] w-24">Athlete</th>
                 <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">BW</th>
                 <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>SQ</th>
                 <th className="p-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center w-14">Best<br/>BP</th>
