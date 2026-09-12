@@ -52,7 +52,6 @@ type Athlete = {
   benchRackHeight: string;
   benchSafetyHeight: string;
   liftOff: string;
-  allTimeTotal: string;
   squat: LiftData;
   bench: LiftData;
   deadlift: LiftData;
@@ -175,7 +174,6 @@ function emptyAthlete(): Athlete {
     benchRackHeight: "",
     benchSafetyHeight: "",
     liftOff: "",
-    allTimeTotal: "",
     squat: emptyLift(),
     bench: emptyLift(),
     deadlift: emptyLift(),
@@ -572,7 +570,13 @@ function AthleteDetail({
             <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.bench.atpr || "—"}</div>
             <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>{athlete.deadlift.atpr || "—"}</div>
             <div className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600 }}>
-              {athlete.allTimeTotal || "—"}
+              {(() => {
+                const s = parseFloat(athlete.squat.atpr || "0") || 0;
+                const b = parseFloat(athlete.bench.atpr || "0") || 0;
+                const d = parseFloat(athlete.deadlift.atpr || "0") || 0;
+                const total = s + b + d;
+                return total > 0 ? total : "—";
+              })()}
             </div>
 
             {/* COMP row */}
@@ -1143,7 +1147,6 @@ function SetupPage({
             <Input label="Bench Rack Height" value={a.benchRackHeight} onChange={(v) => setField("benchRackHeight", v)} placeholder="e.g. 3" />
             <Input label="Bench Safety Height" value={a.benchSafetyHeight} onChange={(v) => setField("benchSafetyHeight", v)} placeholder="e.g. 2" />
             <Input label="Lift Off" value={a.liftOff} onChange={(v) => setField("liftOff", v)} placeholder="Yes / No" />
-            <Input label="All-Time Total" value={a.allTimeTotal} onChange={(v) => setField("allTimeTotal", v)} placeholder="e.g. 617.5" />
             <div className="mt-2">
               <p className="text-[#666666] text-xs tracking-[0.18em] uppercase mb-3" style={{ fontFamily: "var(--font-mono)" }}>Danger Zone</p>
               <button
