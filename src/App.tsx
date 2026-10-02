@@ -44,6 +44,7 @@ type GamedayOpponent = {
 type Athlete = {
   id: string;
   name: string;
+  sex: "" | "M" | "F";
   ageCategory: string;
   lotNumber: string;
   bodyWeight: string;
@@ -166,6 +167,7 @@ function emptyAthlete(): Athlete {
   return {
     id: crypto.randomUUID(),
     name: "",
+    sex: "",
     ageCategory: "",
     lotNumber: "",
     bodyWeight: "",
@@ -222,8 +224,24 @@ function parseWeight(s: string): number {
 function computeTotal(a: Athlete) {
   const s = parseWeight(a.squat.best);
   const b = parseWeight(a.bench.best);
-  const d = parseWeight(a.deadlift.best);
+  // Gameday DL attempts override the deadlift best once any is good
+  const gdDl = getValidDL(a.gameday?.dl1, a.gameday?.dl2, a.gameday?.dl3);
+  const d = gdDl > 0 ? gdDl : parseWeight(a.deadlift.best);
   return { s, b, d, total: s + b + d };
+}
+
+// IPF GL points (2020 coefficients, classic 3-lift)
+const GL_PARAMS = {
+  M: { A: 1199.72839, B: 1025.18162, C: 0.00921 },
+  F: { A: 610.32796, B: 1045.59282, C: 0.03048 },
+};
+
+function computeGLPoints(sex: Athlete["sex"], bodyWeight: string, total: number): number | null {
+  const bw = parseWeight(bodyWeight);
+  if (!sex || bw <= 0 || total <= 0) return null;
+  const { A, B, C } = GL_PARAMS[sex];
+  const coeff = Math.round((100 / (A - B * Math.exp(-C * bw))) * 1e6) / 1e6;
+  return coeff * total;
 }
 
 const LIFT_LABELS: Record<Lift, string> = {
@@ -441,6 +459,7 @@ function AthleteDetail({
   onGameday: () => void;
 }) {
   const total = computeTotal(athlete);
+  const glp = computeGLPoints(athlete.sex, athlete.bodyWeight, total.total);
   const s = parseWeight(athlete.squat.peakingNumber);
   const b = parseWeight(athlete.bench.peakingNumber);
   const d = parseWeight(athlete.deadlift.peakingNumber);
@@ -507,6 +526,22 @@ function AthleteDetail({
                 </div>
                 <span className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 48, fontWeight: 900 }}>
                   {total.total > 0 ? total.total : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[#666666] text-[13px] font-bold tracking-[0.18em] uppercase mb-2" style={{ fontFamily: "var(--font-mono)" }}>
+                Live GLP
+              </p>
+              <div className="flex items-end justify-between">
+                <div className="flex items-center gap-2 text-[#666]" style={{ fontFamily: "var(--font-mono)", fontSize: 16 }}>
+                  <span>{athlete.sex ? (athlete.sex === "M" ? "Male" : "Female") : "Set sex"}</span>
+                  <span className="text-[#aaaaaa]">·</span>
+                  <span>{athlete.bodyWeight ? `${athlete.bodyWeight}kg` : "Set BW"}</span>
+                </div>
+                <span className="text-[#111111] leading-none" style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 900 }}>
+                  {glp !== null ? parseFloat(glp.toFixed(6)) : "—"}
                 </span>
               </div>
             </div>
@@ -1139,6 +1174,26 @@ function SetupPage({
         {activeTab === "info" && (
           <div className="flex flex-col gap-4">
             <Input label="Name" value={a.name} onChange={(v) => setField("name", v)} placeholder="Athlete name" />
+            <div className="flex flex-col gap-1">
+              <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em" }} className="text-[#666] uppercase">
+                Sex
+              </label>
+              <div className="flex gap-2">
+                {(["M", "F"] as const).map((sx) => (
+                  <button
+                    key={sx}
+                    type="button"
+                    onClick={() => setField("sex", a.sex === sx ? "" : sx)}
+                    className={`flex-1 py-2.5 rounded-lg text-sm border transition-colors ${
+                      a.sex === sx ? "bg-[#FEBF33] border-[#FEBF33] text-[#111111] font-semibold" : "bg-[#f0f0f0] border-[rgba(0,0,0,0.15)] text-[#666666]"
+                    }`}
+                    style={{ fontFamily: "var(--font-body)" }}
+                  >
+                    {sx === "M" ? "Male" : "Female"}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Input label="Weight Class (kg)" value={a.weightClass} onChange={(v) => setField("weightClass", v)} placeholder="e.g. 83" />
             <Input label="Age Category" value={a.ageCategory} onChange={(v) => setField("ageCategory", v)} placeholder="e.g. Junior" />
             <Input label="Lot Number" value={a.lotNumber} onChange={(v) => setField("lotNumber", v)} placeholder="e.g. 9" />
@@ -1255,19 +1310,17 @@ function LiftSetupForm({
 
 // ─── Gameday Page ─────────────────────────────────────────────────────────────
 
-function getValidDL(dl1: string, dl2: string, dl3: string): number {
-  if (dl3 && !dl3.toLowerCase().includes('x')) return parseFloat(dl3) || 0;
-  if (dl2 && !dl2.toLowerCase().includes('x')) return parseFloat(dl2) || 0;
-  if (dl1 && !dl1.toLowerCase().includes('x')) return parseFloat(dl1) || 0;
-  return 0;
+// Highest good deadlift attempt; attempts containing "x" are no-lifts.
+function getValidDL(dl1?: string, dl2?: string, dl3?: string): number {
+  return Math.max(0, ...[dl1, dl2, dl3].map(v => (v && !v.toLowerCase().includes('x') ? parseFloat(v) || 0 : 0)));
 }
 
 // Fixed pixel widths for the Gameday standings table, in column order:
-// [Athlete, BW, Best SQ, Best BP, DL1, DL2, DL3, Total]
+// [Athlete, BW, Best SQ, Best BP, DL1, DL2, DL3, Total, GLP]
 // Tweak these numbers to make columns tighter/wider — the table now
 // obeys them exactly (table-layout: fixed), instead of the browser's
 // default <input> width taking over.
-const GAMEDAY_COLS = [92, 44, 42, 42, 58, 58, 58, 46];
+const GAMEDAY_COLS = [92, 44, 42, 42, 58, 58, 58, 46, 56];
 const GAMEDAY_TABLE_WIDTH = GAMEDAY_COLS.reduce((a, b) => a + b, 0);
 
 function GamedayPage({
@@ -1301,7 +1354,9 @@ function GamedayPage({
     const bp = parseFloat(r.bestBp) || 0;
     const dl = getValidDL(r.dl1, r.dl2, r.dl3);
     const total = sq + bp + dl;
-    return { ...r, total, bwVal: parseFloat(r.bw) || 0 };
+    // Opponents are in the same category, so they share the athlete's sex
+    const glp = computeGLPoints(athlete.sex, r.bw, total);
+    return { ...r, total, glp, bwVal: parseFloat(r.bw) || 0 };
   });
 
   calculatedRows.sort((a, b) => {
@@ -1441,6 +1496,7 @@ function GamedayPage({
                 <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center">DL 2</th>
                 <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center">DL 3</th>
                 <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center">Total</th>
+                <th className="px-1 py-2 font-bold text-[#aaa] text-[10px] tracking-wider uppercase text-center">GLP</th>
               </tr>
             </thead>
             <tbody>
@@ -1519,6 +1575,9 @@ function GamedayPage({
                     </td>
                     <td className="px-1 py-2 text-center font-bold text-[13px] text-[#111]">
                       {r.total > 0 ? r.total : "—"}
+                    </td>
+                    <td className="px-1 py-2 text-center font-semibold text-[13px] text-[#111]">
+                      {r.glp !== null ? r.glp.toFixed(2) : "—"}
                     </td>
                   </tr>
                 );
